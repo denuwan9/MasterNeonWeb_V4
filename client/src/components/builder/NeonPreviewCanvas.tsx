@@ -175,11 +175,14 @@ const NeonPreviewCanvas = forwardRef<NeonPreviewHandle, BuilderConfig>((config, 
           imageWidth = imgW
           imageHeight = imgH
 
+          // Fixed brightness value since we use frameShape instead
+          const brightness = 80
+
           // Draw neon outline effect with pulsing
           const glowIntensity = 30 + Math.sin(sparkIndex) * 10
           ctx.shadowColor = config.color
           ctx.shadowBlur = glowIntensity
-          ctx.globalAlpha = (config.brightness / 100) * (0.9 + Math.sin(sparkIndex * 1.5) * 0.1)
+          ctx.globalAlpha = (brightness / 100) * (0.9 + Math.sin(sparkIndex * 1.5) * 0.1)
           ctx.drawImage(img, imageX, imageY, imageWidth, imageHeight)
           
           // Draw outline with pulsing
