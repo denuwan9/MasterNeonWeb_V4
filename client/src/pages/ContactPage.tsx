@@ -10,7 +10,6 @@ const ContactPage = () => {
     message: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-<<<<<<< HEAD
   const [validationErrors, setValidationErrors] = useState<{
     name?: string
     email?: string
@@ -49,14 +48,12 @@ const ContactPage = () => {
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       let value = event.target.value
       
-      // For phone, only allow numeric input
       if (field === 'phone') {
         value = value.replace(/\D/g, '')
       }
       
       setForm((prev) => ({ ...prev, [field]: value }))
       
-      // Clear error for this field on change
       if (validationErrors[field]) {
         setValidationErrors((prev) => ({ ...prev, [field]: undefined }))
       }
@@ -91,7 +88,6 @@ const ContactPage = () => {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     
-    // Validate all fields
     const errors: { name?: string; email?: string; phone?: string; message?: string } = {}
     
     if (!form.name) {
@@ -127,20 +123,6 @@ const ContactPage = () => {
       await api.post('/contact', form)
       setForm({ name: '', email: '', phone: '', message: '' })
       setValidationErrors({})
-=======
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!form.name || !form.email || !form.message) {
-      setStatus({ type: 'error', message: 'Name, email, and message are required.' })
-      return
-    }
-    setIsSubmitting(true)
-    setStatus({ type: 'idle', message: '' })
-    try {
-      await api.post('/contact', form)
-      setForm({ name: '', email: '', phone: '', message: '' })
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
       setStatus({ type: 'success', message: "Thanks! We'll respond in 1 business day." })
     } catch (error) {
       setStatus({ type: 'error', message: 'Could not send message. Please try again later.' })
@@ -149,15 +131,6 @@ const ContactPage = () => {
     }
   }
 
-<<<<<<< HEAD
-=======
-  const handleFieldChange =
-    (field: keyof typeof form) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setForm((prev) => ({ ...prev, [field]: event.target.value }))
-    }
-
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <div className="glass-panel border border-white/10 p-6">
@@ -180,11 +153,7 @@ const ContactPage = () => {
             height="100%"
             style={{ border: 0 }}
             allowFullScreen
-<<<<<<< HEAD
             loading="eager"
-=======
-            loading="lazy"
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
             referrerPolicy="no-referrer-when-downgrade"
             title="Wasana Bakers Retiyala shop location"
           />
@@ -193,7 +162,6 @@ const ContactPage = () => {
 
       <form className="glass-panel border border-white/10 p-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
-<<<<<<< HEAD
           <div>
             <input
               className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${
@@ -267,37 +235,6 @@ const ContactPage = () => {
             <p className={`text-sm ${status.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{status.message}</p>
           )}
           <NeonButton type="submit" disabled={isSubmitting || !isFormValid()} className="w-full">
-=======
-          <input
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white focus:border-pink-400 focus:outline-none"
-            placeholder="Name"
-            value={form.name}
-            onChange={handleFieldChange('name')}
-          />
-          <input
-            type="email"
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white focus:border-pink-400 focus:outline-none"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleFieldChange('email')}
-          />
-          <input
-            className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white focus:border-pink-400 focus:outline-none"
-            placeholder="Phone"
-            value={form.phone}
-            onChange={handleFieldChange('phone')}
-          />
-          <textarea
-            className="min-h-[160px] w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white focus:border-pink-400 focus:outline-none"
-            placeholder="How can we help?"
-            value={form.message}
-            onChange={handleFieldChange('message')}
-          />
-          {status.type !== 'idle' && (
-            <p className={`text-sm ${status.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>{status.message}</p>
-          )}
-          <NeonButton type="submit" disabled={isSubmitting} className="w-full">
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
             {isSubmitting ? 'Sending…' : 'Send message'}
           </NeonButton>
         </div>
