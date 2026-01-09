@@ -112,14 +112,28 @@ const BuilderPage = () => {
     return undefined
   }
 
+  // const validatePhone = (phone: string): string | undefined => {
+  //   if (!phone) return undefined
+  //   const digitsOnly = phone.replace(/\D/g, '')
+  //   if (digitsOnly.length !== 10) {
+  //     return 'Phone number must contain exactly 10 digits.'
+  //   }
+  //   return undefined
+  // }
+
   const validatePhone = (phone: string): string | undefined => {
-    if (!phone) return undefined
-    const digitsOnly = phone.replace(/\D/g, '')
-    if (digitsOnly.length !== 10) {
-      return 'Phone number must contain exactly 10 digits.'
-    }
-    return undefined
+  if (!phone) return undefined // Phone is optional
+  
+  // Remove all non-digits to count only numbers
+  const digitsOnly = phone.replace(/\D/g, '')
+  
+  // Must be exactly 10 digits
+  if (digitsOnly.length !== 10) {
+    return 'Phone number must be exactly 10 digits.'
   }
+  
+  return undefined
+}
 
   const handleCustomerChange =
     <K extends keyof CustomerDetails>(field: K) =>
