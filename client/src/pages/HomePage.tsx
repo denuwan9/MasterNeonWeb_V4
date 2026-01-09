@@ -22,11 +22,7 @@ const benefits = [
   },
   { 
     title: 'Islandwide Shipping', 
-<<<<<<< HEAD
     detail: 'We offer reliable and efficient islandwide shipping for all your orders.',
-=======
-    detail: 'Delivered ready-to-hang with 2-year hardware warranty.',
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
     icon: Package,
     gradient: 'from-cyan-500 to-blue-500',
     glowColor: 'shadow-cyan-500/50'
@@ -67,11 +63,7 @@ const HomePage = () => (
           </Link>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
-<<<<<<< HEAD
-          {['3,400+ installs', '7-day average build', 'Islandwide dilivery'].map((stat) => (
-=======
-          {['3,400+ installs', '7-day average build', '2-year warranty'].map((stat) => (
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
+          {['3,400+ installs', '7-day average build', 'Islandwide delivery'].map((stat) => (
             <p key={stat} className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/70">
               {stat}
             </p>
@@ -91,11 +83,9 @@ const HomePage = () => (
             
           </p>
           <div className="relative aspect-[4/3] rounded-2xl border border-white/10 overflow-hidden shadow-2xl [&_#logo]:hidden">
-  <Spline scene="https://prod.spline.design/eo3ql3KAc3tEEiHd/scene.splinecode" />
-</div>
-          
+            <Spline scene="https://prod.spline.design/eo3ql3KAc3tEEiHd/scene.splinecode" />
+          </div>
         </div>
-        
       </motion.div>
     </section>
 
@@ -119,13 +109,9 @@ const HomePage = () => (
                 src={item.imageUrl}
                 alt={item.label}
                 className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
-<<<<<<< HEAD
                 loading="eager"
                 fetchPriority="high"
                 decoding="sync"
-=======
-                loading="lazy"
->>>>>>> 4e2716b47bba5627e9fad37c38b846ac6511e62a
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
@@ -138,7 +124,6 @@ const HomePage = () => (
                 </span>
               </div>
             </div>
-            
           </motion.div>
         ))}
       </div>
@@ -156,7 +141,6 @@ const HomePage = () => (
             transition={{ delay: i * 0.08 }}
             whileHover={{ y: -8, scale: 1.02 }}
           >
-            {/* Animated gradient background */}
             <motion.div 
               className={`absolute -inset-20 bg-gradient-to-r ${benefit.gradient} opacity-0 blur-3xl transition-opacity duration-700 group-hover:opacity-30`}
               animate={{
@@ -169,7 +153,6 @@ const HomePage = () => (
               }}
             />
             
-            {/* Icon container with glow effect */}
             <motion.div 
               className={`relative mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br ${benefit.gradient} shadow-xl ${benefit.glowColor}`}
               whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.1 }}
@@ -177,7 +160,6 @@ const HomePage = () => (
             >
               <Icon className="h-8 w-8 text-white drop-shadow-lg" strokeWidth={1.5} />
               
-              {/* Pulse effect */}
               <motion.div
                 className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${benefit.gradient} opacity-0`}
                 animate={{
@@ -195,7 +177,6 @@ const HomePage = () => (
             <p className="relative text-xl font-semibold text-white">{benefit.title}</p>
             <p className="relative mt-3 text-sm leading-relaxed text-white/70">{benefit.detail}</p>
             
-            {/* Hover accent line */}
             <motion.div 
               className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r ${benefit.gradient}`}
               initial={{ width: 0 }}
