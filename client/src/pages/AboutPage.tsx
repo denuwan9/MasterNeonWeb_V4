@@ -47,7 +47,7 @@ const features = [
 
 const handleWhatsAppClick = () => {
   const phoneNumber = "94769968638"; // e.g., "94771234567"
-  const message = "test message"; // Optional: Add a pre-filled message
+  const message = "Hi... "; // Optional: Add a pre-filled message
   
   const url = message 
     ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
