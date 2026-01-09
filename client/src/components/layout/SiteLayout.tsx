@@ -22,9 +22,19 @@ const SiteLayout = () => {
 
   const pageVariants = {
     initial: { opacity: 0, y: 8, scale: 0.995 },
-    animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, y: -6, scale: 0.995, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } },
-  }
+    animate: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { duration: 0.45, ease: 'easeOut' }
+    },
+    exit: { 
+      opacity: 0, 
+      y: -6, 
+      scale: 0.995,
+      transition: { duration: 0.35, ease: 'easeIn' }
+    },
+  } as const
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#1f2937_0%,#05060a_55%)] text-white">
@@ -44,7 +54,13 @@ const SiteLayout = () => {
 
       <main className="mx-auto min-h-[70vh] max-w-6xl px-6 py-12">
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={location.pathname} variants={pageVariants} initial="initial" animate="animate" exit="exit">
+          <motion.div 
+            key={location.pathname} 
+            variants={pageVariants} 
+            initial="initial" 
+            animate="animate" 
+            exit="exit"
+          >
             <Outlet />
           </motion.div>
         </AnimatePresence>
