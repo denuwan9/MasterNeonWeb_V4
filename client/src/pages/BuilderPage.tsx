@@ -929,20 +929,86 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
 
-                          // For templates, just send the template reference and customization details
-                          // No PDFs or large images - keep payload small
-                          console.log('📤 Sending template design request (lightweight):')
+                          // Convert template image to PDF (lightweight)
+                          console.log('📤 Generating PDF with template image...')
+                          let pdfBase64: string | null = null
+                          try {
+                            // Load template image
+                            const img = new Image()
+                            img.crossOrigin = 'anonymous'
+                            await new Promise<void>((resolve, reject) => {
+                              img.onload = () => resolve()
+                              img.onerror = () => reject(new Error('Failed to load template image'))
+                              img.src = selectedTemplateForModal.imageUrl
+                            })
+
+                            // Generate a simple PDF with just the template image
+                            const { jsPDF } = await import('jspdf')
+                            const doc = new jsPDF('p', 'mm', 'a4')
+                            const pageWidth = doc.internal.pageSize.getWidth()
+                            const pageHeight = doc.internal.pageSize.getHeight()
+                            const margin = 20
+
+                            // Add black background
+                            doc.setFillColor(0, 0, 0)
+                            doc.rect(0, 0, pageWidth, pageHeight, 'F')
+
+                            // Add title
+                            doc.setTextColor(255, 255, 255)
+                            doc.setFontSize(16)
+                            doc.text('Template Design Request', margin, margin + 10)
+
+                            // Add template info
+                            doc.setFontSize(12)
+                            doc.text(`Template: ${selectedTemplateForModal.label}`, margin, margin + 25)
+                            doc.text(`Custom Text: ${templateModalConfig.text}`, margin, margin + 35)
+                            doc.text(`Color: ${templateModalConfig.color}`, margin, margin + 45)
+                            doc.text(`Size: ${templateModalConfig.size}`, margin, margin + 55)
+
+                            // Add template image
+                            const canvas = document.createElement('canvas')
+                            canvas.width = img.width
+                            canvas.height = img.height
+                            const ctx = canvas.getContext('2d')
+                            if (ctx) {
+                              ctx.drawImage(img, 0, 0)
+                              const imageData = canvas.toDataURL('image/jpeg', 0.7)
+
+                              const imgWidth = pageWidth - 2 * margin
+                              const imgHeight = (img.height * imgWidth) / img.width
+                              const maxHeight = pageHeight - margin - 80
+                              const finalHeight = imgHeight > maxHeight ? maxHeight : imgHeight
+                              const finalWidth = (img.width * finalHeight) / img.height
+
+                              const imgX = margin + (imgWidth - finalWidth) / 2
+                              doc.addImage(imageData, 'JPEG', imgX, 80, finalWidth, finalHeight)
+                            }
+
+                            const arrayBuffer = doc.output('arraybuffer')
+                            const bytes = new Uint8Array(arrayBuffer)
+                            let binary = ''
+                            for (let i = 0; i < bytes.byteLength; i++) {
+                              binary += String.fromCharCode(bytes[i])
+                            }
+                            pdfBase64 = btoa(binary)
+
+                            console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
+                          } catch (error) {
+                            console.warn('Failed to generate template PDF:', error)
+                            pdfBase64 = null
+                          }
+
+                          console.log('📤 Sending template design request:')
                           console.log('- Template:', selectedTemplateForModal.label)
                           console.log('- Custom text:', templateModalConfig.text)
-                          console.log('- Color:', templateModalConfig.color)
-                          console.log('- Size:', templateModalConfig.size)
+                          console.log('- PDF:', pdfBase64 ? `Yes (${Math.round(pdfBase64.length / 1024)}KB)` : 'No')
 
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
-                            imagePreview: null, // Don't send image for templates
-                            pdfBase64: null,    // Don't send PDF for templates
-                            invoicePdfBase64: null, // Don't send invoice PDF for templates
+                            imagePreview: null, // Don't send separate image
+                            pdfBase64,          // Send template as PDF
+                            invoicePdfBase64: null, // Don't send invoice for templates
                             timestamp: new Date().toISOString(),
                             // Add template metadata for email
                             templateName: selectedTemplateForModal.label,
