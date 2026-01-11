@@ -928,7 +928,33 @@ const BuilderPage = () => {
                             size: templateModalConfig.size,
                             selectedTemplate: selectedTemplateForModal.value,
                           }
-                          const imagePreview = selectedTemplateForModal.imageUrl
+
+                          // Convert template image URL to base64 data URL
+                          let imagePreview = ''
+                          try {
+                            const img = new Image()
+                            img.crossOrigin = 'anonymous'
+                            await new Promise<void>((resolve, reject) => {
+                              img.onload = () => resolve()
+                              img.onerror = () => reject(new Error('Failed to load template image'))
+                              img.src = selectedTemplateForModal.imageUrl
+                            })
+
+                            // Convert image to base64
+                            const canvas = document.createElement('canvas')
+                            canvas.width = img.width
+                            canvas.height = img.height
+                            const ctx = canvas.getContext('2d')
+                            if (ctx) {
+                              ctx.drawImage(img, 0, 0)
+                              imagePreview = canvas.toDataURL('image/png')
+                            }
+                          } catch (imgError) {
+                            console.warn('Failed to convert template image to base64:', imgError)
+                            // Fallback: use the URL (email might not work but won't crash)
+                            imagePreview = selectedTemplateForModal.imageUrl
+                          }
+
                           // Use stored PDF if available, otherwise generate a new one
                           let pdfBase64 = templateModalPdfBase64
                           if (!pdfBase64) {
@@ -936,11 +962,16 @@ const BuilderPage = () => {
                             pdfBase64 = await generatePDF(config, customerDetails, null)
                             setTemplateModalPdfBase64(pdfBase64)
                           }
+
+                          // Generate invoice PDF
+                          const invoicePdfBase64 = await generateInvoicePDF(config, customerDetails)
+
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
                             imagePreview,
                             pdfBase64,
+                            invoicePdfBase64,
                             timestamp: new Date().toISOString(),
                           })
                           const responseData = response?.data || {}
@@ -1043,13 +1074,11 @@ const BuilderPage = () => {
                             }
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
                             setTemplateModalPdfBase64(pdfBase64)
-                            // Trigger download immediately
-                            const link = document.createElement('a');
-                            link.href = pdfBase64;
-                            link.download = `MasterNeon_${selectedTemplateForModal.value}.pdf`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+
+                            // Generate invoice PDF
+                            await generateInvoicePDF(config, customerDetails)
+
+                            // PDFs are auto-downloaded by the generate functions
                           }}
                         >
                           Download PDF
