@@ -964,27 +964,56 @@ const BuilderPage = () => {
                             }
                           }
 
-                          console.log('📤 Sending template design request:')
-                          console.log('- Template:', selectedTemplateForModal.label)
-                          console.log('- Custom text:', templateModalConfig.text)
-                          console.log('- PDF size:', pdfBase64 ? `${Math.round(pdfBase64.length / 1024)}KB` : 'No PDF')
+                          // Convert template image to base64 (compressed)
+                          console.log('📤 Converting template image to base64...')
+                          let imagePreview = ''
+                          try {
+                            const img = new Image()
+                            img.crossOrigin = 'anonymous'
 
-                          // Check PDF size - if too large, don't send it (designer gets template URL instead)
-                          const pdfSizeKB = pdfBase64 ? pdfBase64.length / 1024 : 0
-                          const shouldSendPdf = pdfBase64 && pdfSizeKB < 1500 // Less than 1.5MB
+                            await new Promise<void>((resolve, reject) => {
+                              const timeout = setTimeout(() => reject(new Error('Image load timeout')), 10000)
+                              img.onload = () => {
+                                clearTimeout(timeout)
+                                resolve()
+                              }
+                              img.onerror = () => {
+                                clearTimeout(timeout)
+                                reject(new Error('Failed to load image'))
+                              }
+                              img.src = selectedTemplateForModal.imageUrl
+                            })
 
-                          if (!shouldSendPdf && pdfBase64) {
-                            console.log(`⚠️ PDF too large (${Math.round(pdfSizeKB)}KB), sending template URL instead`)
+                            // Compress image heavily to avoid 413 error
+                            const canvas = document.createElement('canvas')
+                            const maxWidth = 800
+                            const scale = maxWidth / img.width
+                            canvas.width = maxWidth
+                            canvas.height = img.height * scale
+
+                            const ctx = canvas.getContext('2d')
+                            if (ctx) {
+                              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                              imagePreview = canvas.toDataURL('image/jpeg', 0.4) // Low quality for small size
+                              console.log(`✅ Image compressed (${Math.round(imagePreview.length / 1024)}KB)`)
+                            }
+                          } catch (error) {
+                            console.error('❌ Failed to convert image:', error)
+                            imagePreview = ''
                           }
 
+                          console.log('📤 Sending template design request')
+
                           const response = await api.post('/neon-request', {
-                            ...customerDetails,
+                            customerName: customerDetails.customerName,
+                            email: customerDetails.email,
+                            phone: customerDetails.phone,
+                            notes: customerDetails.notes,
                             config,
-                            imagePreview: null, // Don't send separate image
-                            pdfBase64: shouldSendPdf ? pdfBase64 : null, // Only send PDF if small enough
-                            invoicePdfBase64: null, // Don't send invoice for templates
+                            imagePreview, // Send compressed template image
+                            pdfBase64: null, // Don't send PDF - avoid 413 error
+                            invoicePdfBase64: null,
                             timestamp: new Date().toISOString(),
-                            // Add template metadata for email
                             templateName: selectedTemplateForModal.label,
                             templateValue: selectedTemplateForModal.value,
                             templateImageUrl: selectedTemplateForModal.imageUrl,
