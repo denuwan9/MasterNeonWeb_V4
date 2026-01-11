@@ -28,7 +28,7 @@ const tagMap: Record<string, ShowcaseTag[]> = {
   'ha-heart': ['Events'],
 }
 
-const showcaseItems: ShowcaseItem[] = defaultTemplates.map((item) => ({
+const showcaseItems: ShowcaseItem[] = defaultTemplates.map((item: typeof defaultTemplates[0]) => ({
   label: item.label,
   value: item.value,
   imageUrl: item.imageUrl,

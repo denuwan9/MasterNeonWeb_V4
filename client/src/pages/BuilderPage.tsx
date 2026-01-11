@@ -88,7 +88,7 @@ const BuilderPage = () => {
   // If coming from a preset (template), set the name text and store selected template
   useEffect(() => {
     if (presetParam) {
-      const tpl = defaultTemplates.find((t) => t.value === presetParam)
+      const tpl = defaultTemplates.find((t: typeof defaultTemplates[0]) => t.value === presetParam)
       if (tpl) {
         setNameConfig((prev) => ({
           ...prev,

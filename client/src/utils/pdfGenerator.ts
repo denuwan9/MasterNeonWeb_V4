@@ -70,11 +70,6 @@ const drawWavePattern = (doc: jsPDF, pageWidth: number, pageHeight: number) => {
     // Draw curved lines
     const startX = i * (pageWidth / waves)
 
-    const _controlX1 = startX + pageWidth * 0.2
-    const _controlY1 = y + 50
-    const _controlX2 = startX + pageWidth * 0.5
-    const _controlY2 = endY - 30
-
     // Control points reserved for future curve implementation (bezier curves)
     // const controlX1 = startX + pageWidth * 0.2
     // const controlY1 = y + 50
@@ -261,8 +256,6 @@ export async function generatePDF(
 
       { label: 'Frame Shape  :', value: logoConfig.frameShape.charAt(0).toUpperCase() + logoConfig.frameShape.slice(1) },
 
-      { label: 'Brightness  :', value: `${logoConfig.brightness}%` },
-
       { label: 'Size  :', value: logoConfig.size.charAt(0).toUpperCase() + logoConfig.size.slice(1) },
     )
     
@@ -275,7 +268,7 @@ export async function generatePDF(
     })
   } else if (config.category === 'default') {
     const defaultConfig = config as typeof config & { category: 'default' }
-    const template = defaultTemplates.find(t => t.value === defaultConfig.template)
+    const template = defaultTemplates.find((t: typeof defaultTemplates[0]) => t.value === defaultConfig.template)
     
     const designFields = [
       { label: 'Category  :', value: 'Default Design Template' },
@@ -355,7 +348,7 @@ export async function generatePDF(
       // Try to get template image first
       if (config.category === 'name') {
         const nameConfig = config as NameSignConfig & { selectedTemplate?: string }
-        const template = defaultTemplates.find(t => t.value === nameConfig.selectedTemplate)
+        const template = defaultTemplates.find((t: typeof defaultTemplates[0]) => t.value === nameConfig.selectedTemplate)
         if (template?.imageUrl) {
           img = new Image()
           img.crossOrigin = 'anonymous'
@@ -380,7 +373,7 @@ export async function generatePDF(
         }
       } else if (config.category === 'default') {
         const defaultConfig = config as typeof config & { category: 'default' }
-        const template = defaultTemplates.find(t => t.value === defaultConfig.template)
+        const template = defaultTemplates.find((t: typeof defaultTemplates[0]) => t.value === defaultConfig.template)
         if (template?.imageUrl) {
           img = new Image()
           img.crossOrigin = 'anonymous'

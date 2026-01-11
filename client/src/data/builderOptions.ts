@@ -80,6 +80,81 @@ export const sizeMaxLetters: Record<NeonSize, number> = {
   large: 10,
 }
 
+export const defaultTemplates = [
+  {
+    label: 'Happy Birthday',
+    value: 'happy-birthday',
+    text: 'Happy Birthday',
+    imageUrl: '/neon-designs/happy-birthday.png',
+  },
+  {
+    label: 'Happy Anniversary',
+    value: 'happy-anniversary',
+    text: 'Happy Anniversary',
+    imageUrl: '/neon-designs/happy-anniversary.png',
+  },
+  {
+    label: 'Back Light Logo',
+    value: 'back-light-logo',
+    text: 'Back Light Logo',
+    imageUrl: '/neon-designs/back-light-logo.png',
+  },
+  {
+    label: 'Neon Name Logo',
+    value: 'neon-mame-logo',
+    text: 'Neon Name Logo',
+    imageUrl: '/neon-designs/neon-name-logo.png',
+  },
+  {
+    label: 'Neon Logo',
+    value: 'neon-logo',
+    text: 'Neon Logo',
+    imageUrl: '/neon-designs/neon-logo.png',
+  },
+  {
+    label: 'Neon Cat',
+    value: 'neon-cat-01',
+    text: 'Neon Cat',
+    imageUrl: '/neon-designs/neon-cat-01.png',
+  },
+  {
+    label: 'Neon Cat',
+    value: 'neon-cat-02',
+    text: 'Neon Cat',
+    imageUrl: '/neon-designs/neon-cat-02.png',
+  },
+  {
+    label: 'Neon Cat on Moon',
+    value: 'cat-moon',
+    text: 'Neon Cat on Moon',
+    imageUrl: '/neon-designs/neon-cat-03.png',
+  },
+  {
+    label: 'Happy Birthday Classic',
+    value: 'hb-classic',
+    text: 'Happy Birthday',
+    imageUrl: '/neon-designs/hb-classic.jpg',
+  },
+  {
+    label: 'Happy Birthday Cursive',
+    value: 'hb-cursive',
+    text: 'Happy Birthday',
+    imageUrl: '/neon-designs/hb-cursive.jpg',
+  },
+  {
+    label: 'Happy Birthday Modern',
+    value: 'hb-modern',
+    text: 'Happy Birthday',
+    imageUrl: '/neon-designs/hb-modern.jpg',
+  },
+  {
+    label: 'Happy Anniversary Heart',
+    value: 'ha-heart',
+    text: 'Happy Anniversary',
+    imageUrl: '/neon-designs/ha-heart.png',
+  },
+]
+
 export const emojiOptions = [
   '👑', '❤️', '💛', '💚', '💙', '💜', '🧡', '🖤', '🤍', '💖',
   '💗', '💓', '💕', '💞', '💟', '💝', '✨', '🌟', '💫', '⭐',

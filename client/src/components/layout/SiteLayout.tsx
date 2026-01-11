@@ -22,8 +22,8 @@ const SiteLayout = () => {
 
   const pageVariants = {
     initial: { opacity: 0, y: 8, scale: 0.995 },
-    animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: 'easeOut' } },
-    exit: { opacity: 0, y: -6, scale: 0.995, transition: { duration: 0.35, ease: 'easeIn' } },
+    animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
+    exit: { opacity: 0, y: -6, scale: 0.995, transition: { duration: 0.35, ease: [0.4, 0, 1, 1] } },
   }
 
   return (
@@ -36,7 +36,7 @@ const SiteLayout = () => {
           aria-hidden
           initial={{ scaleX: 0 }}
           animate={{ scaleX: isRouteChanging ? 1 : 0 }}
-          transition={{ duration: isRouteChanging ? 0.55 : 0.35, ease: 'easeInOut' }}
+          transition={{ duration: isRouteChanging ? 0.55 : 0.35, ease: [0.4, 0, 0.2, 1] }}
           style={{ transformOrigin: '0% 50%' }}
           className="pointer-events-none absolute left-0 right-0 top-0 z-50 h-1 origin-left bg-gradient-to-r from-pink-500 via-cyan-400 to-pink-500"
         />

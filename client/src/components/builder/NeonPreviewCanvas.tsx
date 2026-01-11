@@ -199,7 +199,7 @@ const NeonPreviewCanvas = forwardRef<NeonPreviewHandle, BuilderConfig>((config, 
       }
     } else if (config.category === 'default') {
       // Default Neon Designs - Show actual neon sign images
-      const template = defaultTemplates.find(t => t.value === config.template)
+      const template = defaultTemplates.find((t: typeof defaultTemplates[0]) => t.value === config.template)
       if (template?.imageUrl) {
         const img = new Image()
         img.crossOrigin = 'anonymous'

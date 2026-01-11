@@ -99,7 +99,7 @@ const HomePage = () => (
         </Link>
       </div>
       <div className="grid gap-6 md:grid-cols-3">
-        {defaultTemplates.slice(0, 3).map((item, idx) => (
+        {defaultTemplates.slice(0, 3).map((item: typeof defaultTemplates[0], idx: number) => (
           <motion.div
             key={item.value}
             className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-0 shadow-neon/40"
