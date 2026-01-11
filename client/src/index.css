@@ -55,7 +55,6 @@ body {
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.75));
 }
 
-
 /* Animation utilities */
 @keyframes fade-in {
   from {
@@ -88,5 +87,4 @@ body {
 .slide-in-from-top-2 {
   animation: slide-in-from-top 0.2s ease-out;
 }
-
 

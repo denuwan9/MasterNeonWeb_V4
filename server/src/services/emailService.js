@@ -18,25 +18,48 @@ const resolvedHost =
   process.env.SMTP_HOST ||
   (process.env.SMTP_USER && process.env.SMTP_USER.includes('@gmail.com') ? 'smtp.gmail.com' : undefined)
 
-const transporter = nodemailer.createTransport({
-  host: resolvedHost,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-})
+// Only create transporter if we have the required config (not using SendGrid exclusively)
+let transporter = null
+if (resolvedHost && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  try {
+    transporter = nodemailer.createTransport({
+      host: resolvedHost,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    })
+    console.log('✅ SMTP transporter configured:', resolvedHost)
+  } catch (e) {
+    console.error('❌ Failed to create SMTP transporter:', e.message)
+    transporter = null
+  }
+} else if (!sgMail) {
+  console.warn('⚠️ No email transport configured (neither SendGrid nor SMTP)')
+}
 
 const isEmailConfigured = () => {
-  return (
+  // Check if SendGrid is configured
+  if (sgMail && process.env.DESIGNER_EMAIL && !process.env.DESIGNER_EMAIL.includes('your_')) {
+    return true
+  }
+  
+  // Check if SMTP is configured
+  if (
+    transporter &&
     process.env.SMTP_USER &&
     process.env.SMTP_PASS &&
     !process.env.SMTP_USER.includes('your_') &&
     !process.env.SMTP_PASS.includes('your_') &&
     process.env.DESIGNER_EMAIL &&
     !process.env.DESIGNER_EMAIL.includes('your_')
-  )
+  ) {
+    return true
+  }
+  
+  return false
 }
 
 const getEmailTemplate = (title, content, footerText = '© 2026 Master Neon. All rights reserved.') => `
@@ -91,36 +114,140 @@ const getEmailTemplate = (title, content, footerText = '© 2026 Master Neon. All
 `
 
 const sendNeonRequestEmail = async (request) => {
+  console.log('📧 sendNeonRequestEmail called')
+  console.log('Email config check:', {
+    hasSMTP_USER: !!process.env.SMTP_USER,
+    hasSMTP_PASS: !!process.env.SMTP_PASS,
+    hasDESIGNER_EMAIL: !!process.env.DESIGNER_EMAIL,
+    hasSENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY,
+  })
+
   if (!isEmailConfigured()) {
-    console.log('⚠️ Email not configured. Skipping neon request email.')
-    return
+    const errorMsg = 'Email not configured. Missing required environment variables: SMTP_USER, SMTP_PASS, or DESIGNER_EMAIL'
+    console.error('❌', errorMsg)
+    throw new Error(errorMsg)
   }
 
   const attachment = []
+  
+  console.log('📎 Processing attachments...')
+  console.log('- Has imagePreview:', !!request.imagePreview)
+  console.log('- Has pdfBase64:', !!request.pdfBase64)
+  console.log('- Has invoicePdfBase64:', !!request.invoicePdfBase64)
+  
   if (request.imagePreview && request.imagePreview.startsWith('data:image')) {
     attachment.push({
       filename: 'neon-preview.png',
       content: request.imagePreview.split(';base64,').pop(),
       encoding: 'base64',
     })
+    console.log('✅ Added image preview attachment')
   }
 
   if (request.pdfBase64) {
     try {
-      const pdfBase64 = typeof request.pdfBase64 === 'string' ? request.pdfBase64.trim() : null
+      let pdfBase64 = typeof request.pdfBase64 === 'string' ? request.pdfBase64.trim() : null
+      console.log('📄 Processing design PDF:', {
+        exists: !!pdfBase64,
+        length: pdfBase64 ? pdfBase64.length : 0,
+        startsWithData: pdfBase64 ? pdfBase64.startsWith('data:') : false,
+        firstChars: pdfBase64 ? pdfBase64.substring(0, 50) : '',
+      })
+      
       if (pdfBase64 && pdfBase64.length > 0) {
-        const cleanBase64 = pdfBase64.replace(/^data:application\/pdf;base64,/, '')
-        if (cleanBase64.length > 0) {
+        // Remove data URI prefix if present, otherwise use as-is
+        let cleanBase64 = pdfBase64
+        if (pdfBase64.includes(',')) {
+          // Has data URI prefix, extract base64 part
+          cleanBase64 = pdfBase64.split(',')[1]
+        } else if (pdfBase64.startsWith('data:')) {
+          // Has data prefix but no comma (unlikely but handle it)
+          cleanBase64 = pdfBase64.replace(/^data:[^;]*;base64,/, '')
+        }
+        // If no prefix, use the string as-is (it's already base64)
+        
+        if (cleanBase64 && cleanBase64.length > 0) {
           attachment.push({
             filename: 'design.pdf',
             content: cleanBase64,
             encoding: 'base64',
           })
+          console.log('✅ Added design PDF attachment (' + Math.round(cleanBase64.length / 1024) + 'KB)')
+        } else {
+          console.log('⚠️ Design PDF base64 is empty after cleaning')
         }
+      } else {
+        console.log('⚠️ Design PDF is empty or invalid')
       }
     } catch (e) {
-      console.error('Error processing PDF attachment:', e.message)
+      console.error('❌ Error processing design PDF attachment:', e.message)
+      console.error('Error stack:', e.stack)
     }
+  } else {
+    console.log('⚠️ No design PDF in request')
+  }
+
+  // Add invoice PDF attachment
+  if (request.invoicePdfBase64) {
+    try {
+      let invoicePdfBase64 = typeof request.invoicePdfBase64 === 'string' ? request.invoicePdfBase64.trim() : null
+      console.log('📄 Processing invoice PDF:', {
+        exists: !!invoicePdfBase64,
+        length: invoicePdfBase64 ? invoicePdfBase64.length : 0,
+        startsWithData: invoicePdfBase64 ? invoicePdfBase64.startsWith('data:') : false,
+        firstChars: invoicePdfBase64 ? invoicePdfBase64.substring(0, 50) : '',
+      })
+      
+      if (invoicePdfBase64 && invoicePdfBase64.length > 0) {
+        // Remove data URI prefix if present, otherwise use as-is
+        let cleanBase64 = invoicePdfBase64
+        if (invoicePdfBase64.includes(',')) {
+          // Has data URI prefix, extract base64 part
+          cleanBase64 = invoicePdfBase64.split(',')[1]
+        } else if (invoicePdfBase64.startsWith('data:')) {
+          // Has data prefix but no comma (unlikely but handle it)
+          cleanBase64 = invoicePdfBase64.replace(/^data:[^;]*;base64,/, '')
+        }
+        // If no prefix, use the string as-is (it's already base64)
+        
+        if (cleanBase64 && cleanBase64.length > 0) {
+          attachment.push({
+            filename: 'invoice.pdf',
+            content: cleanBase64,
+            encoding: 'base64',
+          })
+          console.log('✅ Added invoice PDF attachment (' + Math.round(cleanBase64.length / 1024) + 'KB)')
+        } else {
+          console.log('⚠️ Invoice PDF base64 is empty after cleaning')
+        }
+      } else {
+        console.log('⚠️ Invoice PDF is empty or invalid')
+      }
+    } catch (e) {
+      console.error('❌ Error processing invoice PDF attachment:', e.message)
+      console.error('Error stack:', e.stack)
+    }
+  } else {
+    console.log('⚠️ No invoice PDF in request')
+  }
+  
+  console.log('📎 Total attachments:', attachment.length)
+  attachment.forEach((att, idx) => {
+    console.log(`  ${idx + 1}. ${att.filename} (${Math.round(att.content.length / 1024)}KB)`)
+  })
+
+  // Verify both PDFs are present
+  const hasDesignPDF = attachment.some(a => a.filename === 'design.pdf')
+  const hasInvoicePDF = attachment.some(a => a.filename === 'invoice.pdf')
+  console.log('📄 PDF Verification:')
+  console.log('  - Design PDF:', hasDesignPDF ? '✅ Present' : '❌ Missing')
+  console.log('  - Invoice PDF:', hasInvoicePDF ? '✅ Present' : '❌ Missing')
+  
+  if (!hasDesignPDF && request.pdfBase64) {
+    console.warn('⚠️ WARNING: Design PDF was in request but not added to attachments!')
+  }
+  if (!hasInvoicePDF && request.invoicePdfBase64) {
+    console.warn('⚠️ WARNING: Invoice PDF was in request but not added to attachments!')
   }
 
   // Build HTML Content
@@ -157,39 +284,80 @@ const sendNeonRequestEmail = async (request) => {
       ${configDetails}
     </div>
 
-    <div style="text-align: center; margin-top: 30px;">
-      <p style="color: #666; font-size: 13px;">Attachments included: ${attachment.map(a => a.filename).join(', ') || 'None'}</p>
-    </div>
+        <div style="text-align: center; margin-top: 30px;">
+          <p style="color: #666; font-size: 13px;">Attachments included: ${attachment.map(a => a.filename).join(', ') || 'None'}</p>
+          ${attachment.some(a => a.filename === 'invoice.pdf') ? '<p style="color: #00ffff; font-size: 12px; margin-top: 5px;">📄 Invoice PDF included for customer records</p>' : ''}
+        </div>
   `
 
   const html = getEmailTemplate('New Design Request', content)
 
   try {
-    const mailOptions = {
-      from: `Master Neon Builder <${process.env.SMTP_USER}>`,
-      to: process.env.DESIGNER_EMAIL,
-      subject: `New Request: ${request.customerName}`,
-      html,
-      attachments: attachment.length > 0 ? attachment.map(a => ({ filename: a.filename, content: Buffer.from(a.content, 'base64') })) : undefined,
-    }
+    console.log('📤 Preparing to send email...')
+    console.log('To:', process.env.DESIGNER_EMAIL)
+    console.log('From:', process.env.SMTP_USER)
+    console.log('Attachments:', attachment.length)
+    console.log('Attachment files:', attachment.map(a => a.filename).join(', '))
 
     if (sgMail) {
-      mailOptions.from = process.env.SMTP_USER || process.env.FROM_EMAIL || 'no-reply@masterneon.com'
-      // SendGrid expects content string for attachments, not Buffer
-      mailOptions.attachments = attachment.map(a => ({
+      // SendGrid format - ensure all attachments are included
+      const sendGridAttachments = attachment.map(a => ({
         content: a.content,
         filename: a.filename,
         type: a.filename.endsWith('.pdf') ? 'application/pdf' : 'image/png',
         disposition: 'attachment',
       }))
-      await sgMail.send(mailOptions)
+      
+      console.log('📎 SendGrid attachments being sent:', sendGridAttachments.map(a => a.filename).join(', '))
+      
+      const msg = {
+        to: process.env.DESIGNER_EMAIL,
+        from: process.env.SMTP_USER || process.env.FROM_EMAIL || 'no-reply@masterneon.com',
+        subject: `New Request: ${request.customerName}`,
+        html,
+        attachments: sendGridAttachments,
+      }
+      
+      console.log('📤 Sending via SendGrid...')
+      const result = await sgMail.send(msg)
       console.log('✅ Neon request email sent via SendGrid')
-    } else {
-      await transporter.sendMail(mailOptions)
+      console.log('SendGrid response status:', result[0]?.statusCode)
+      console.log('📎 Attachments sent:', sendGridAttachments.length, 'files')
+      return
+    } else if (transporter) {
+      // SMTP format - ensure all attachments are included
+      const smtpAttachments = attachment.map(a => ({ 
+        filename: a.filename, 
+        content: Buffer.from(a.content, 'base64') 
+      }))
+      
+      console.log('📎 SMTP attachments being sent:', smtpAttachments.map(a => a.filename).join(', '))
+      
+      const mailOptions = {
+        from: `Master Neon Builder <${process.env.SMTP_USER}>`,
+        to: process.env.DESIGNER_EMAIL,
+        subject: `New Request: ${request.customerName}`,
+        html,
+        attachments: smtpAttachments.length > 0 ? smtpAttachments : undefined,
+      }
+
+      console.log('📤 Sending via SMTP...')
+      const info = await transporter.sendMail(mailOptions)
       console.log('✅ Neon request email sent via SMTP')
+      console.log('SMTP message ID:', info.messageId)
+      console.log('📎 Attachments sent:', smtpAttachments.length, 'files')
+      return
+    } else {
+      throw new Error('No email transport available (neither SendGrid nor SMTP configured)')
     }
   } catch (err) {
     console.error('❌ Error sending email:', err.message)
+    console.error('Error details:', {
+      name: err.name,
+      code: err.code,
+      response: err.response ? JSON.stringify(err.response) : undefined,
+      stack: err.stack,
+    })
     throw err
   }
 }
@@ -247,9 +415,20 @@ setTimeout(() => void processQueuedEmails(), 5 * 1000)
 setInterval(() => void processQueuedEmails(), 60 * 1000)
 
 const sendContactEmail = async (message) => {
+  console.log('📧 sendContactEmail called')
+  console.log('Email config check:', {
+    hasSMTP_USER: !!process.env.SMTP_USER,
+    hasSMTP_PASS: !!process.env.SMTP_PASS,
+    hasDESIGNER_EMAIL: !!process.env.DESIGNER_EMAIL,
+    hasSENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY,
+    hasTransporter: !!transporter,
+    hasSendGrid: !!sgMail,
+  })
+
   if (!isEmailConfigured()) {
-    console.log('⚠️ Email not configured. Skipping contact email.')
-    return
+    const errorMsg = 'Email not configured. Missing required environment variables: SMTP_USER, SMTP_PASS, DESIGNER_EMAIL, or SENDGRID_API_KEY'
+    console.error('❌', errorMsg)
+    throw new Error(errorMsg)
   }
 
   const content = `
@@ -269,17 +448,52 @@ const sendContactEmail = async (message) => {
   `
 
   const html = getEmailTemplate('New Contact Message', content)
+  const recipientEmail = process.env.DESIGNER_EMAIL || process.env.ADMIN_EMAIL
 
   try {
-    await transporter.sendMail({
-      from: `Master Neon Website <${process.env.SMTP_USER}>`,
-      to: process.env.DESIGNER_EMAIL || process.env.ADMIN_EMAIL,
-      subject: `Contact: ${message.name}`,
-      html,
-    })
-    console.log('✅ Contact email sent successfully')
+    console.log('📤 Preparing to send contact email...')
+    console.log('To:', recipientEmail)
+    console.log('From:', process.env.SMTP_USER || 'SendGrid')
+
+    if (sgMail) {
+      // SendGrid format
+      const msg = {
+        to: recipientEmail,
+        from: process.env.SMTP_USER || process.env.FROM_EMAIL || 'no-reply@masterneon.com',
+        subject: `Contact: ${message.name}`,
+        html,
+      }
+      
+      console.log('📤 Sending via SendGrid...')
+      const result = await sgMail.send(msg)
+      console.log('✅ Contact email sent via SendGrid')
+      console.log('SendGrid response status:', result[0]?.statusCode)
+      return
+    } else if (transporter) {
+      // SMTP format
+      const mailOptions = {
+        from: `Master Neon Website <${process.env.SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `Contact: ${message.name}`,
+        html,
+      }
+
+      console.log('📤 Sending via SMTP...')
+      const info = await transporter.sendMail(mailOptions)
+      console.log('✅ Contact email sent via SMTP')
+      console.log('SMTP message ID:', info.messageId)
+      return
+    } else {
+      throw new Error('No email transport available (neither SendGrid nor SMTP configured)')
+    }
   } catch (err) {
-    console.error('Error sending contact email:', err.message)
+    console.error('❌ Error sending contact email:', err.message)
+    console.error('Error details:', {
+      name: err.name,
+      code: err.code,
+      response: err.response ? JSON.stringify(err.response) : undefined,
+      stack: err.stack,
+    })
     throw err
   }
 }

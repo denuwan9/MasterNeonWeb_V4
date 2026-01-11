@@ -1,7 +1,17 @@
+require('dotenv').config()
 const { sendNeonRequestEmail } = require('../server/src/services/emailService')
 
 // Configure max body size (Vercel default is 4.5MB, we'll optimize payload instead)
 module.exports = async (req, res) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' })
@@ -17,23 +27,67 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { customerName, email, phone, config, imagePreview, notes, timestamp, pdfBase64 } = req.body
+    const { customerName, email, phone, config, imagePreview, notes, timestamp, pdfBase64, invoicePdfBase64 } = req.body
     
-    // Optimize payload: Remove PDF if it's too large (keep only essential data)
+    console.log('📦 Received request payload:')
+    console.log('- Has pdfBase64:', !!pdfBase64, pdfBase64 ? `(${Math.round(pdfBase64.length / 1024)}KB)` : '')
+    console.log('- Has invoicePdfBase64:', !!invoicePdfBase64, invoicePdfBase64 ? `(${Math.round(invoicePdfBase64.length / 1024)}KB)` : '')
+    
+    // Optimize payload: Remove PDFs if they're too large (keep only essential data)
     let optimizedPdfBase64 = pdfBase64
-    if (pdfBase64 && pdfBase64.length > 2 * 1024 * 1024) {
-      // PDF is larger than 2MB, don't send it (email will still work)
-      console.log('PDF too large, skipping attachment to reduce payload size')
-      optimizedPdfBase64 = null
+    if (pdfBase64) {
+      // Remove data URI prefix to get actual base64 length
+      const base64Length = pdfBase64.includes(',') 
+        ? pdfBase64.split(',')[1].length 
+        : pdfBase64.length
+      
+      console.log('📄 Design PDF size check:', Math.round(base64Length / 1024) + 'KB')
+      
+      // PDF is larger than 2MB base64, don't send it (email will still work)
+      // Increased limit to ensure design PDFs are attached
+      if (base64Length > 2 * 1024 * 1024) {
+        console.log('⚠️ Design PDF too large (' + Math.round(base64Length / 1024) + 'KB), skipping attachment to reduce payload size')
+        optimizedPdfBase64 = null
+      } else {
+        console.log('✅ Design PDF size OK (' + Math.round(base64Length / 1024) + 'KB), will attach')
+      }
+    } else {
+      console.log('⚠️ No design PDF provided')
+    }
+
+    let optimizedInvoicePdfBase64 = invoicePdfBase64
+    if (invoicePdfBase64) {
+      // Remove data URI prefix to get actual base64 length
+      const base64Length = invoicePdfBase64.includes(',') 
+        ? invoicePdfBase64.split(',')[1].length 
+        : invoicePdfBase64.length
+      
+      console.log('📄 Invoice PDF size check:', Math.round(base64Length / 1024) + 'KB')
+      
+      // Invoice PDF is larger than 1.5MB base64, don't send it
+      // Increased limit to ensure invoice PDFs are attached
+      if (base64Length > 1.5 * 1024 * 1024) {
+        console.log('⚠️ Invoice PDF too large (' + Math.round(base64Length / 1024) + 'KB), skipping attachment to reduce payload size')
+        optimizedInvoicePdfBase64 = null
+      } else {
+        console.log('✅ Invoice PDF size OK (' + Math.round(base64Length / 1024) + 'KB), will attach')
+      }
+    } else {
+      console.log('⚠️ No invoice PDF provided')
     }
     
-    // Optimize image preview: If it's too large, compress or skip
+    // Optimize image preview: If it's too large, skip it
     let optimizedImagePreview = imagePreview
-    if (imagePreview && imagePreview.length > 2 * 1024 * 1024) {
-      console.log('Image preview too large, attempting to optimize')
-      // Try to remove data URI prefix to reduce size slightly
-      if (imagePreview.startsWith('data:image')) {
-        optimizedImagePreview = imagePreview
+    if (imagePreview) {
+      // Remove data URI prefix to get actual base64 length
+      const base64Length = imagePreview.includes(',') 
+        ? imagePreview.split(',')[1].length 
+        : imagePreview.length
+      
+      // Image is larger than 1.5MB base64, skip it
+      if (base64Length > 1.5 * 1024 * 1024) {
+        console.log('Image preview too large (' + Math.round(base64Length / 1024) + 'KB), skipping to reduce payload size')
+        optimizedImagePreview = null
       }
     }
 
@@ -52,12 +106,24 @@ module.exports = async (req, res) => {
       notes: notes || '',
       timestamp: timestamp || new Date().toISOString(),
       pdfBase64: optimizedPdfBase64,
+      invoicePdfBase64: optimizedInvoicePdfBase64,
     }
+    
+    // Log what's being sent to email service
+    console.log('📧 Request object for email service:')
+    console.log('- pdfBase64:', request.pdfBase64 ? `Present (${Math.round(request.pdfBase64.length / 1024)}KB)` : 'MISSING')
+    console.log('- invoicePdfBase64:', request.invoicePdfBase64 ? `Present (${Math.round(request.invoicePdfBase64.length / 1024)}KB)` : 'MISSING')
+    console.log('- imagePreview:', request.imagePreview ? `Present (${Math.round(request.imagePreview.length / 1024)}KB)` : 'MISSING')
 
     // Attempt to send notification email
     try {
       console.log('📧 Sending design request email to designer...')
-      console.log('Designer email:', process.env.DESIGNER_EMAIL)
+      console.log('Environment check:', {
+        DESIGNER_EMAIL: process.env.DESIGNER_EMAIL ? 'SET' : 'MISSING',
+        SMTP_USER: process.env.SMTP_USER ? 'SET' : 'MISSING',
+        SMTP_PASS: process.env.SMTP_PASS ? 'SET' : 'MISSING',
+        SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'SET' : 'MISSING',
+      })
       console.log('Customer:', customerName, email)
       console.log('Design category:', config?.category)
       
@@ -71,21 +137,21 @@ module.exports = async (req, res) => {
       })
     } catch (emailError) {
       const errorMessage = emailError && emailError.message ? emailError.message : 'Unknown error'
-      console.error('Failed to send neon request email:', errorMessage)
+      const errorCode = emailError && emailError.code ? emailError.code : 'UNKNOWN'
+      console.error('❌ Failed to send neon request email:', errorMessage)
+      console.error('Error code:', errorCode)
+      console.error('Full error:', emailError)
 
-      if (errorMessage.includes('not configured') || errorMessage.includes('SMTP')) {
-        return res.status(200).json({
-          success: true,
-          message: 'Design request received. A designer will contact you within 1 business day.',
-          warning: 'Email notification is not configured. Please check your SMTP settings.',
-        })
-      } else {
-        return res.status(200).json({
-          success: true,
-          message: 'Design request received. A designer will contact you within 1 business day.',
-          warning: 'Email notification may have failed, but your request was logged.',
-        })
-      }
+      // Still return success to user, but log the error
+      return res.status(200).json({
+        success: true,
+        message: 'Design request received. A designer will contact you within 1 business day.',
+        warning: errorMessage.includes('not configured') 
+          ? 'Email notification is not configured. Please check your SMTP/SendGrid settings in Vercel environment variables.'
+          : `Email notification failed (${errorCode}). Please check Vercel logs for details.`,
+        emailSent: false,
+        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      })
     }
   } catch (err) {
     console.error('Unexpected error handling neon request:', err)

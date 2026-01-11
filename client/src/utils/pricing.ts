@@ -12,3 +12,4 @@ export const formatCurrency = (value: number): string => {
 export const describePrice = (_text: string, size: NeonSize): string => {
   return `${sizePrices[size].toLocaleString()}/=`
 }
+

@@ -6,7 +6,7 @@ import NeonButton from '../components/common/NeonButton'
 import { neonColorOptions, sizeOptions, defaultTemplates, sizeMaxLetters, getDefaultFont } from '../data/builderOptions'
 import FontDropdown from '../components/builder/FontDropdown'
 import type { BuilderConfig, CustomerDetails, NameSignConfig, LogoSignConfig } from '../types/neon'
-import { generatePDF } from '../utils/pdfGenerator'
+import { generatePDF, generateInvoicePDF, downloadPDFFromBase64 } from '../utils/pdfGenerator'
 import api from '../services/api'
 
 const BuilderPage = () => {
@@ -19,12 +19,11 @@ const BuilderPage = () => {
   const previewRef = useRef<NeonPreviewHandle>(null)
   const previewElementRef = useRef<HTMLDivElement>(null)
   const customerSectionRef = useRef<HTMLDivElement>(null)
-  
   // Name Sign Config
   const [nameConfig, setNameConfig] = useState<NameSignConfig>({
     category: 'name',
     text: 'Your Name',
-    font: getDefaultFont(),
+    font: getDefaultFont(), // Barcelona as default
     color: neonColorOptions[0].value,
     size: 'medium',
   })
@@ -55,6 +54,7 @@ const BuilderPage = () => {
     phone?: string
   }>({})
   const [generatedPdfBase64, setGeneratedPdfBase64] = useState<string | null>(null)
+  const [generatedInvoicePdfBase64, setGeneratedInvoicePdfBase64] = useState<string | null>(null)
   const [templateModalPdfBase64, setTemplateModalPdfBase64] = useState<string | null>(null)
   const [selectedTemplateForModal, setSelectedTemplateForModal] = useState<typeof defaultTemplates[0] | null>(null)
   const [templateModalConfig, setTemplateModalConfig] = useState<{
@@ -112,35 +112,62 @@ const BuilderPage = () => {
     return undefined
   }
 
-  // const validatePhone = (phone: string): string | undefined => {
-  //   if (!phone) return undefined
-  //   const digitsOnly = phone.replace(/\D/g, '')
-  //   if (digitsOnly.length !== 10) {
-  //     return 'Phone number must contain exactly 10 digits.'
-  //   }
-  //   return undefined
-  // }
-
   const validatePhone = (phone: string): string | undefined => {
-  if (!phone) return undefined // Phone is optional
-  
-  // Remove all non-digits to count only numbers
-  const digitsOnly = phone.replace(/\D/g, '')
-  
-  // Must be exactly 10 digits
-  if (digitsOnly.length !== 10) {
-    return 'Phone number must be exactly 10 digits.'
+    if (!phone) return undefined // Phone is optional
+    // Remove all non-digit characters to count digits
+    const digitsOnly = phone.replace(/\D/g, '')
+    // Must have exactly 10 digits
+    if (digitsOnly.length !== 10) {
+      return 'Phone number must contain exactly 10 digits.'
+    }
+    return undefined
   }
-  
-  return undefined
-}
+
+  // Compress image to reduce payload size
+  const compressImage = (dataUrl: string, maxWidth = 800, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        // Scale down if too large
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          const compressed = canvas.toDataURL('image/jpeg', quality)
+          resolve(compressed)
+        } else {
+          resolve(dataUrl) // Fallback to original
+        }
+      }
+      img.onerror = () => resolve(dataUrl) // Fallback to original on error
+      img.src = dataUrl
+    })
+  }
 
   const handleCustomerChange =
     <K extends keyof CustomerDetails>(field: K) =>
       (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const value = event.target.value
+        let value = event.target.value
+
+        // Restrict phone input to numbers only
+        if (field === 'phone') {
+          value = value.replace(/\D/g, '') // Remove all non-digits
+        }
+
         setCustomerDetails((prev) => ({ ...prev, [field]: value }))
 
+        // Validate on change
         if (field === 'email') {
           const error = validateEmail(value)
           setValidationErrors((prev) => ({ ...prev, email: error }))
@@ -162,12 +189,15 @@ const BuilderPage = () => {
     }
   }
 
+
   const validateCustomerDetails = (): boolean => {
+    // Validate required fields
     if (!customerDetails.customerName || !customerDetails.email) {
       setStatus({ type: 'error', message: 'Name and email are required.' })
       return false
     }
 
+    // Validate email format
     const emailError = validateEmail(customerDetails.email)
     if (emailError) {
       setValidationErrors((prev) => ({ ...prev, email: emailError }))
@@ -175,6 +205,7 @@ const BuilderPage = () => {
       return false
     }
 
+    // Validate phone format if provided
     if (customerDetails.phone) {
       const phoneError = validatePhone(customerDetails.phone)
       if (phoneError) {
@@ -184,6 +215,7 @@ const BuilderPage = () => {
       }
     }
 
+    // Clear validation errors if all valid
     setValidationErrors({})
     return true
   }
@@ -192,20 +224,24 @@ const BuilderPage = () => {
     if (!validateCustomerDetails()) return
 
     const config = getCurrentConfig()
+    // For default and logo designs, skip live preview capture (they use uploaded/selected images)
     const previewNode = activeTab === 'name' ? previewElementRef.current : null
     const pdfBase64 = await generatePDF(config, customerDetails, previewNode)
+    // Store the generated PDF so it can be used when sending email
     setGeneratedPdfBase64(pdfBase64)
   }
 
   const handleSendToDesigner = async () => {
     if (!validateCustomerDetails()) return
 
+    // Preflight: check backend health to avoid silent network errors (connection refused / CORS)
     try {
       await api.get('/health')
     } catch (err) {
       setStatus({
         type: 'error',
-        message: 'Cannot reach API server. Please check your network connection and try again.',
+        message:
+          'Cannot reach API server. Please check your network connection and try again.',
       })
       return
     }
@@ -215,22 +251,81 @@ const BuilderPage = () => {
 
     try {
       const config = getCurrentConfig()
-      const imagePreview = activeTab === 'logo' ? (config as LogoSignConfig).imageData : previewRef.current?.getImage()
+      // For logo, use uploaded image; for name, capture canvas
+      let imagePreview = activeTab === 'logo' ? (config as LogoSignConfig).imageData : previewRef.current?.getImage()
 
+      // Compress image preview to reduce payload size (Vercel has 4.5MB limit)
+      if (imagePreview && imagePreview.startsWith('data:image')) {
+        try {
+          imagePreview = await compressImage(imagePreview, 800, 0.7)
+          console.log('Image compressed for upload')
+        } catch (compressError) {
+          console.warn('Failed to compress image, using original:', compressError)
+        }
+      }
+
+      // Use stored PDF if available, otherwise generate a new one
       let pdfBase64 = generatedPdfBase64
       if (!pdfBase64) {
+        // Generate PDF and get base64 representation (also triggers download)
         const previewNode = activeTab === 'name' ? previewElementRef.current : null
         pdfBase64 = await generatePDF(config, customerDetails, previewNode)
         setGeneratedPdfBase64(pdfBase64)
+      } else {
+        // PDF already generated, trigger download manually
+        const timestamp = new Date().toISOString().split('T')[0]
+        downloadPDFFromBase64(pdfBase64, `MasterNeon-Design-${timestamp}.pdf`)
+        // Small delay to avoid browser blocking multiple downloads
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
 
-      const response = await api.post('/neon-request', {
+      // Generate invoice PDF
+      let invoicePdfBase64 = generatedInvoicePdfBase64
+      if (!invoicePdfBase64) {
+        invoicePdfBase64 = await generateInvoicePDF(config, customerDetails)
+        setGeneratedInvoicePdfBase64(invoicePdfBase64)
+      } else {
+        // Invoice PDF already generated, trigger download manually
+        const timestamp = new Date().toISOString().split('T')[0]
+        downloadPDFFromBase64(invoicePdfBase64, `MasterNeon-Invoice-${timestamp}.pdf`)
+      }
+
+      // Estimate payload size and skip PDFs if too large (Vercel limit is ~4.5MB)
+      const payloadSize = JSON.stringify({
         ...customerDetails,
         config,
         imagePreview,
         pdfBase64,
+        invoicePdfBase64,
+      }).length
+
+      // If payload is approaching limit (3.5MB), skip PDF attachments
+      const maxPayloadSize = 3.5 * 1024 * 1024 // 3.5MB to leave buffer
+      if (payloadSize > maxPayloadSize) {
+        console.warn('Payload too large, skipping PDF attachments to prevent 413 error')
+        if (pdfBase64) {
+          pdfBase64 = null
+        }
+        if (invoicePdfBase64) {
+          invoicePdfBase64 = null
+        }
+      }
+
+      const requestPayload = {
+        ...customerDetails,
+        config,
+        imagePreview,
+        pdfBase64,
+        invoicePdfBase64,
         timestamp: new Date().toISOString(),
-      })
+      }
+      
+      console.log('📤 Sending design request with attachments:')
+      console.log('- Design PDF:', pdfBase64 ? `Yes (${Math.round(pdfBase64.length / 1024)}KB)` : 'No')
+      console.log('- Invoice PDF:', invoicePdfBase64 ? `Yes (${Math.round(invoicePdfBase64.length / 1024)}KB)` : 'No')
+      console.log('- Image Preview:', imagePreview ? `Yes (${Math.round(imagePreview.length / 1024)}KB)` : 'No')
+      
+      const response = await api.post('/neon-request', requestPayload)
 
       const responseData = response?.data || {}
       setStatus({
@@ -238,8 +333,20 @@ const BuilderPage = () => {
         message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day.',
       })
       setCustomerDetails({ customerName: '', email: '', phone: '', notes: '' })
+      // Clear stored PDFs after successful send
       setGeneratedPdfBase64(null)
+      setGeneratedInvoicePdfBase64(null)
     } catch (error: any) {
+      // Handle 413 Payload Too Large error specifically
+      if (error?.response?.status === 413) {
+        setStatus({
+          type: 'error',
+          message: 'Request too large. Please try again - the image has been compressed. If this persists, try with a smaller image.',
+        })
+        return
+      }
+
+      // Provide a clearer message for network errors (backend not running / CORS / unreachable)
       const isNetworkError = error?.code === 'ERR_NETWORK' || (error?.message && error.message.toLowerCase().includes('network'))
       const errorMessage = isNetworkError
         ? 'Cannot reach API server. Please check your network connection and try again.'
@@ -272,11 +379,10 @@ const BuilderPage = () => {
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-3 text-sm uppercase tracking-[0.3em] transition ${
-              activeTab === tab
-                ? 'border-b-2 border-pink-400 text-pink-300'
-                : 'text-white/60 hover:text-white'
-            }`}
+            className={`px-6 py-3 text-sm uppercase tracking-[0.3em] transition ${activeTab === tab
+              ? 'border-b-2 border-pink-400 text-pink-300'
+              : 'text-white/60 hover:text-white'
+              }`}
           >
             {tab === 'name' && 'Name Sign'}
             {tab === 'logo' && 'Logo Sign'}
@@ -349,9 +455,8 @@ const BuilderPage = () => {
                   />
                   {logoConfig.imageData && (
                     <div
-                      className={`mt-3 mx-auto max-w-[200px] overflow-hidden border border-white/10 transition-all duration-300 ${
-                        logoConfig.frameShape === 'circle' ? 'rounded-full aspect-square bg-black/40' : 'rounded-xl'
-                      }`}
+                      className={`mt-3 mx-auto max-w-[200px] overflow-hidden border border-white/10 transition-all duration-300 ${logoConfig.frameShape === 'circle' ? 'rounded-full aspect-square bg-black/40' : 'rounded-xl'
+                        }`}
                       style={{
                         boxShadow: `0 0 10px ${logoConfig.color}, 0 0 20px ${logoConfig.color}, inset 0 0 10px ${logoConfig.color}40`,
                       }}
@@ -375,11 +480,10 @@ const BuilderPage = () => {
                           key={shape}
                           type="button"
                           onClick={() => handleLogoConfigChange('frameShape', shape as 'circle' | 'square')}
-                          className={`flex-1 rounded-xl border px-4 py-3 text-sm transition ${
-                            logoConfig.frameShape === shape
-                              ? 'border-pink-400/70 bg-pink-500/10 text-white shadow-neon'
-                              : 'border-white/10 bg-black/40 text-white/60 hover:border-pink-400/40'
-                          }`}
+                          className={`flex-1 rounded-xl border px-4 py-3 text-sm transition ${logoConfig.frameShape === shape
+                            ? 'border-pink-400/70 bg-pink-500/10 text-white shadow-neon'
+                            : 'border-white/10 bg-black/40 text-white/60 hover:border-pink-400/40'
+                            }`}
                         >
                           {shape.charAt(0).toUpperCase() + shape.slice(1)} Cut
                         </button>
@@ -406,6 +510,8 @@ const BuilderPage = () => {
                 </label>
               </>
             )}
+
+            {/* Default designs handled via Showcase; gallery removed from builder */}
 
             {activeTab === 'template' && (
               <div className="space-y-6">
@@ -472,9 +578,8 @@ const BuilderPage = () => {
                           if (activeTab === 'name') handleNameConfigChange('color', color.value)
                           if (activeTab === 'logo') handleLogoConfigChange('color', color.value)
                         }}
-                        className={`h-10 w-10 rounded-full border-2 transition ${
-                          currentConfig.color === color.value ? 'border-white ring-2 ring-pink-500 ring-offset-2 ring-offset-black' : 'border-white/20'
-                        }`}
+                        className={`h-10 w-10 rounded-full border-2 transition ${currentConfig.color === color.value ? 'border-white ring-2 ring-pink-500 ring-offset-2 ring-offset-black' : 'border-white/20'
+                          }`}
                         style={{ backgroundColor: color.value }}
                         aria-label={color.label}
                       />
@@ -508,11 +613,10 @@ const BuilderPage = () => {
                         if (activeTab === 'name') handleNameConfigChange('size', size.value)
                         if (activeTab === 'logo') handleLogoConfigChange('size', size.value)
                       }}
-                      className={`rounded-2xl border px-4 py-3 text-left transition ${
-                        currentConfig.size === size.value
-                          ? 'border-pink-400/70 bg-pink-500/10 text-white'
-                          : 'border-white/10 text-white/70'
-                      }`}
+                      className={`rounded-2xl border px-4 py-3 text-left transition ${currentConfig.size === size.value
+                        ? 'border-pink-400/70 bg-pink-500/10 text-white'
+                        : 'border-white/10 text-white/70'
+                        }`}
                     >
                       <p className="text-base font-semibold">{size.label}</p>
                       <p className="text-xs text-white/60">{size.description}</p>
@@ -547,11 +651,10 @@ const BuilderPage = () => {
               <div>
                 <input
                   type="email"
-                  className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${
-                    validationErrors.email
-                      ? 'border-red-400 focus:border-red-400'
-                      : 'border-white/10 focus:border-pink-400'
-                  }`}
+                  className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${validationErrors.email
+                    ? 'border-red-400 focus:border-red-400'
+                    : 'border-white/10 focus:border-pink-400'
+                    }`}
                   placeholder="Email *"
                   value={customerDetails.email}
                   onChange={handleCustomerChange('email')}
@@ -564,11 +667,10 @@ const BuilderPage = () => {
               <div>
                 <input
                   type="tel"
-                  className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${
-                    validationErrors.phone
-                      ? 'border-red-400 focus:border-red-400'
-                      : 'border-white/10 focus:border-pink-400'
-                  }`}
+                  className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${validationErrors.phone
+                    ? 'border-red-400 focus:border-red-400'
+                    : 'border-white/10 focus:border-pink-400'
+                    }`}
                   placeholder="Phone (optional)"
                   value={customerDetails.phone}
                   onChange={handleCustomerChange('phone')}
@@ -596,6 +698,7 @@ const BuilderPage = () => {
                         variant="secondary"
                         disabled={isSending}
                         onClick={() => {
+                          // Retry sending the same request
                           void handleSendToDesigner()
                         }}
                       >
@@ -675,9 +778,10 @@ const BuilderPage = () => {
                   <p className="text-center text-lg font-semibold text-white">{selectedTemplateForModal.label}</p>
                 </div>
 
-                
-                  {/* Top Right: Design Customization */}
+                {/* Top Right: Design Customization */}
                 <div className="glass-panel space-y-5 border border-white/10 p-4 md:p-6">
+
+
                   <label className="block text-sm uppercase tracking-[0.3em] text-white/50">
                     Add Name/Text
                     <input
@@ -697,9 +801,8 @@ const BuilderPage = () => {
                           <button
                             type="button"
                             onClick={() => setTemplateModalConfig((prev) => ({ ...prev, color: color.value }))}
-                            className={`h-10 w-10 rounded-full border-2 transition ${
-                              templateModalConfig.color === color.value ? 'border-white ring-2 ring-pink-500 ring-offset-2 ring-offset-black' : 'border-white/20'
-                            }`}
+                            className={`h-10 w-10 rounded-full border-2 transition ${templateModalConfig.color === color.value ? 'border-white ring-2 ring-pink-500 ring-offset-2 ring-offset-black' : 'border-white/20'
+                              }`}
                             style={{ backgroundColor: color.value }}
                             aria-label={color.label}
                           />
@@ -719,11 +822,10 @@ const BuilderPage = () => {
                           key={size.value}
                           type="button"
                           onClick={() => setTemplateModalConfig((prev) => ({ ...prev, size: size.value }))}
-                          className={`rounded-2xl border px-4 py-3 text-left transition ${
-                            templateModalConfig.size === size.value
-                              ? 'border-pink-400/70 bg-pink-500/10 text-white'
-                              : 'border-white/10 text-white/70'
-                          }`}
+                          className={`rounded-2xl border px-4 py-3 text-left transition ${templateModalConfig.size === size.value
+                            ? 'border-pink-400/70 bg-pink-500/10 text-white'
+                            : 'border-white/10 text-white/70'
+                            }`}
                         >
                           <p className="text-base font-semibold">{size.label}</p>
                           <p className="text-xs text-white/60">{size.description}</p>
@@ -733,6 +835,7 @@ const BuilderPage = () => {
                   </div>
                 </div>
               </div>
+
 
               {/* Bottom: Customer Details or Success View */}
               <div className="mt-6">
@@ -826,8 +929,10 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
                           const imagePreview = selectedTemplateForModal.imageUrl
+                          // Use stored PDF if available, otherwise generate a new one
                           let pdfBase64 = templateModalPdfBase64
                           if (!pdfBase64) {
+                            // generate PDF for template config
                             pdfBase64 = await generatePDF(config, customerDetails, null)
                             setTemplateModalPdfBase64(pdfBase64)
                           }
@@ -843,6 +948,8 @@ const BuilderPage = () => {
                             type: 'success',
                             message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day.',
                           })
+                          // Do NOT clear PDF immediately so they can download it again
+                          // Do NOT close modal immediately
                         } catch (error: any) {
                           const errorMessage = error?.response?.data?.message || error?.message || 'We could not submit the request. Check your connection or try again shortly.'
                           setStatus({
@@ -866,11 +973,10 @@ const BuilderPage = () => {
                       <div>
                         <input
                           type="email"
-                          className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${
-                            validationErrors.email
-                              ? 'border-red-400 focus:border-red-400'
-                              : 'border-white/10 focus:border-pink-400'
-                          }`}
+                          className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${validationErrors.email
+                            ? 'border-red-400 focus:border-red-400'
+                            : 'border-white/10 focus:border-pink-400'
+                            }`}
                           placeholder="Email *"
                           value={customerDetails.email}
                           onChange={handleCustomerChange('email')}
@@ -881,11 +987,10 @@ const BuilderPage = () => {
                       <div>
                         <input
                           type="tel"
-                          className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${
-                            validationErrors.phone
-                              ? 'border-red-400 focus:border-red-400'
-                              : 'border-white/10 focus:border-pink-400'
-                          }`}
+                          className={`w-full rounded-xl border px-4 py-3 text-sm text-white focus:outline-none bg-black/40 ${validationErrors.phone
+                            ? 'border-red-400 focus:border-red-400'
+                            : 'border-white/10 focus:border-pink-400'
+                            }`}
                           placeholder="Phone (optional)"
                           value={customerDetails.phone}
                           onChange={handleCustomerChange('phone')}
@@ -938,6 +1043,7 @@ const BuilderPage = () => {
                             }
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
                             setTemplateModalPdfBase64(pdfBase64)
+                            // Trigger download immediately
                             const link = document.createElement('a');
                             link.href = pdfBase64;
                             link.download = `MasterNeon_${selectedTemplateForModal.value}.pdf`;

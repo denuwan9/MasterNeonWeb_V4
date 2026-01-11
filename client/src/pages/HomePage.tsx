@@ -63,7 +63,7 @@ const HomePage = () => (
           </Link>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          {['3,400+ installs', '7-day average build', 'Islandwide delivery'].map((stat) => (
+          {['3,400+ installs', '7-day average build', 'Islandwide dilivery'].map((stat) => (
             <p key={stat} className="rounded-xl border border-white/10 px-4 py-3 text-sm text-white/70">
               {stat}
             </p>
@@ -83,9 +83,11 @@ const HomePage = () => (
             
           </p>
           <div className="relative aspect-[4/3] rounded-2xl border border-white/10 overflow-hidden shadow-2xl [&_#logo]:hidden">
-            <Spline scene="https://prod.spline.design/eo3ql3KAc3tEEiHd/scene.splinecode" />
-          </div>
+  <Spline scene="https://prod.spline.design/eo3ql3KAc3tEEiHd/scene.splinecode" />
+</div>
+          
         </div>
+        
       </motion.div>
     </section>
 
@@ -124,6 +126,7 @@ const HomePage = () => (
                 </span>
               </div>
             </div>
+            
           </motion.div>
         ))}
       </div>
@@ -141,6 +144,7 @@ const HomePage = () => (
             transition={{ delay: i * 0.08 }}
             whileHover={{ y: -8, scale: 1.02 }}
           >
+            {/* Animated gradient background */}
             <motion.div 
               className={`absolute -inset-20 bg-gradient-to-r ${benefit.gradient} opacity-0 blur-3xl transition-opacity duration-700 group-hover:opacity-30`}
               animate={{
@@ -153,6 +157,7 @@ const HomePage = () => (
               }}
             />
             
+            {/* Icon container with glow effect */}
             <motion.div 
               className={`relative mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br ${benefit.gradient} shadow-xl ${benefit.glowColor}`}
               whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.1 }}
@@ -160,6 +165,7 @@ const HomePage = () => (
             >
               <Icon className="h-8 w-8 text-white drop-shadow-lg" strokeWidth={1.5} />
               
+              {/* Pulse effect */}
               <motion.div
                 className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${benefit.gradient} opacity-0`}
                 animate={{
@@ -177,6 +183,7 @@ const HomePage = () => (
             <p className="relative text-xl font-semibold text-white">{benefit.title}</p>
             <p className="relative mt-3 text-sm leading-relaxed text-white/70">{benefit.detail}</p>
             
+            {/* Hover accent line */}
             <motion.div 
               className={`absolute bottom-0 left-0 h-1 bg-gradient-to-r ${benefit.gradient}`}
               initial={{ width: 0 }}

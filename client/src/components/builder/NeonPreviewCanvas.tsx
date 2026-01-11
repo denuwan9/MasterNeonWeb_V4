@@ -23,12 +23,7 @@ const NeonPreviewCanvas = forwardRef<NeonPreviewHandle, BuilderConfig>((config, 
   const animationFrameRef = useRef<number | undefined>(undefined)
 
   useImperativeHandle(ref, () => ({
-    getImage: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return undefined
-      // Use JPEG instead of PNG for smaller file size
-      return canvas.toDataURL('image/jpeg', 0.85) ?? undefined
-    },
+    getImage: () => canvasRef.current?.toDataURL('image/png') ?? undefined,
     spark: () => setSparkIndex((prev) => prev + 1),
     toggleAnimation: () => setIsAnimating((prev) => !prev),
   }))
@@ -175,14 +170,11 @@ const NeonPreviewCanvas = forwardRef<NeonPreviewHandle, BuilderConfig>((config, 
           imageWidth = imgW
           imageHeight = imgH
 
-          // Fixed brightness value since we use frameShape instead
-          const brightness = 80
-
           // Draw neon outline effect with pulsing
           const glowIntensity = 30 + Math.sin(sparkIndex) * 10
           ctx.shadowColor = config.color
           ctx.shadowBlur = glowIntensity
-          ctx.globalAlpha = (brightness / 100) * (0.9 + Math.sin(sparkIndex * 1.5) * 0.1)
+          ctx.globalAlpha = 0.9 + Math.sin(sparkIndex * 1.5) * 0.1
           ctx.drawImage(img, imageX, imageY, imageWidth, imageHeight)
           
           // Draw outline with pulsing
