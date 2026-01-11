@@ -929,77 +929,25 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
 
-                          // Convert template image URL to base64 data URL and compress
-                          let imagePreview = ''
-                          try {
-                            const img = new Image()
-                            img.crossOrigin = 'anonymous'
-                            await new Promise<void>((resolve, reject) => {
-                              img.onload = () => resolve()
-                              img.onerror = () => reject(new Error('Failed to load template image'))
-                              img.src = selectedTemplateForModal.imageUrl
-                            })
-
-                            // Convert image to base64
-                            const canvas = document.createElement('canvas')
-                            canvas.width = img.width
-                            canvas.height = img.height
-                            const ctx = canvas.getContext('2d')
-                            if (ctx) {
-                              ctx.drawImage(img, 0, 0)
-                              const base64Image = canvas.toDataURL('image/png')
-                              // Compress the image to reduce payload size
-                              imagePreview = await compressImage(base64Image, 600, 0.6)
-                              console.log('Template image compressed for upload')
-                            }
-                          } catch (imgError) {
-                            console.warn('Failed to convert template image to base64:', imgError)
-                            // Fallback: use the URL (email might not work but won't crash)
-                            imagePreview = selectedTemplateForModal.imageUrl
-                          }
-
-                          // Use stored PDF if available, otherwise generate a new one
-                          let pdfBase64: string | null = templateModalPdfBase64
-                          if (!pdfBase64) {
-                            // generate PDF for template config
-                            pdfBase64 = await generatePDF(config, customerDetails, null)
-                            setTemplateModalPdfBase64(pdfBase64)
-                          }
-
-                          // Generate invoice PDF
-                          let invoicePdfBase64: string | null = await generateInvoicePDF(config, customerDetails)
-
-                          // Estimate payload size and skip PDFs if too large (Vercel limit is ~4.5MB)
-                          const payloadSize = JSON.stringify({
-                            ...customerDetails,
-                            config,
-                            imagePreview,
-                            pdfBase64,
-                            invoicePdfBase64,
-                          }).length
-
-                          // If payload is approaching limit (3.5MB), skip PDF attachments
-                          const maxPayloadSize = 3.5 * 1024 * 1024 // 3.5MB to leave buffer
-                          if (payloadSize > maxPayloadSize) {
-                            console.warn('Payload too large, skipping PDF attachments to prevent 413 error')
-                            console.warn(`Payload size: ${(payloadSize / 1024 / 1024).toFixed(2)}MB`)
-                            pdfBase64 = null
-                            invoicePdfBase64 = null
-                          }
-
-                          console.log('📤 Sending template design request with attachments:')
-                          console.log('- Design PDF:', pdfBase64 ? `Yes (${Math.round(pdfBase64.length / 1024)}KB)` : 'No')
-                          console.log('- Invoice PDF:', invoicePdfBase64 ? `Yes (${Math.round(invoicePdfBase64.length / 1024)}KB)` : 'No')
-                          console.log('- Image Preview:', imagePreview ? `Yes (${Math.round(imagePreview.length / 1024)}KB)` : 'No')
-                          console.log(`- Total payload: ${(payloadSize / 1024 / 1024).toFixed(2)}MB`)
+                          // For templates, just send the template reference and customization details
+                          // No PDFs or large images - keep payload small
+                          console.log('📤 Sending template design request (lightweight):')
+                          console.log('- Template:', selectedTemplateForModal.label)
+                          console.log('- Custom text:', templateModalConfig.text)
+                          console.log('- Color:', templateModalConfig.color)
+                          console.log('- Size:', templateModalConfig.size)
 
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
-                            imagePreview,
-                            pdfBase64,
-                            invoicePdfBase64,
+                            imagePreview: null, // Don't send image for templates
+                            pdfBase64: null,    // Don't send PDF for templates
+                            invoicePdfBase64: null, // Don't send invoice PDF for templates
                             timestamp: new Date().toISOString(),
+                            // Add template metadata for email
+                            templateName: selectedTemplateForModal.label,
+                            templateValue: selectedTemplateForModal.value,
+                            templateImageUrl: selectedTemplateForModal.imageUrl,
                           })
                           const responseData = response?.data || {}
                           setStatus({
