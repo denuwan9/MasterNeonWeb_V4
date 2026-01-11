@@ -261,7 +261,7 @@ const BuilderPage = () => {
         <h2 className="mt-2 text-4xl font-semibold">Design your perfect neon sign</h2>
         <p className="mt-3 text-white/70">
           Choose from three design options: custom name signs, logo signs, or ready-made templates. Preview in real-time
-          and download your design as a PDF.
+          and download your design as a PDF(test).
         </p>
       </div>
 
