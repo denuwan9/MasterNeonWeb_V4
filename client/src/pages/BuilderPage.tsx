@@ -863,25 +863,20 @@ const BuilderPage = () => {
                         />
                       </svg>
                     </div>
-                    <h3 className="mb-2 text-2xl font-bold text-white">
-                      {status.message.includes('downloaded') ? 'PDF Downloaded Successfully!' : 'Request Sent Successfully!'}
-                    </h3>
+                    <h3 className="mb-2 text-2xl font-bold text-white">Request Sent Successfully!</h3>
                     <p className="mb-8 max-w-md text-white/70">
-                      {status.message.includes('downloaded')
-                        ? 'Your design PDF has been downloaded. You can now send it to our designers or download it again.'
-                        : 'Our designers have received your request and will create a custom proof for you. Keep an eye on your email inbox!'}
+                      Our designers have received your request and will create a custom proof for you. Keep an eye on your email inbox!
                     </p>
                     <div className="flex flex-wrap gap-4">
                       <NeonButton
                         variant="secondary"
                         onClick={() => {
-                          if (templateModalPdfBase64 && selectedTemplateForModal) {
-                            const timestamp = new Date().toISOString().split('T')[0]
-                            downloadPDFFromBase64(templateModalPdfBase64, `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`)
-                            console.log('✅ PDF re-downloaded')
-                          } else {
-                            console.error('No PDF available to download')
-                          }
+                          const link = document.createElement('a');
+                          link.href = templateModalPdfBase64 || '';
+                          link.download = `MasterNeon_${selectedTemplateForModal.value}_${new Date().toISOString().split('T')[0]}.pdf`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
                         }}
                       >
                         Download PDF Again
@@ -933,80 +928,25 @@ const BuilderPage = () => {
                             size: templateModalConfig.size,
                             selectedTemplate: selectedTemplateForModal.value,
                           }
-
-                          // Use stored PDF if already generated, otherwise generate new one using existing generatePDF function
-                          let pdfBase64: string | null = templateModalPdfBase64
-
+                          const imagePreview = selectedTemplateForModal.imageUrl
+                          // Use stored PDF if available, otherwise generate a new one
+                          let pdfBase64 = templateModalPdfBase64
                           if (!pdfBase64) {
-                            console.log('📤 Generating template PDF...')
+                            // generate PDF for template config
                             pdfBase64 = await generatePDF(config, customerDetails, null)
-                            // Note: generatePDF automatically downloads the PDF, no need to download again
-
-                            // Store PDF for "Download Again" button
                             setTemplateModalPdfBase64(pdfBase64)
-                            console.log(`✅ Template PDF generated and downloaded (${Math.round(pdfBase64.length / 1024)}KB)`)
-                          } else {
-                            console.log('✅ Reusing stored PDF (already downloaded)')
                           }
-
-                          // Convert template image to base64 (compressed)
-                          console.log('📤 Converting template image to base64...')
-                          let imagePreview = ''
-                          try {
-                            const img = new Image()
-                            img.crossOrigin = 'anonymous'
-
-                            await new Promise<void>((resolve, reject) => {
-                              const timeout = setTimeout(() => reject(new Error('Image load timeout')), 10000)
-                              img.onload = () => {
-                                clearTimeout(timeout)
-                                resolve()
-                              }
-                              img.onerror = () => {
-                                clearTimeout(timeout)
-                                reject(new Error('Failed to load image'))
-                              }
-                              img.src = selectedTemplateForModal.imageUrl
-                            })
-
-                            // Compress image heavily to avoid 413 error
-                            const canvas = document.createElement('canvas')
-                            const maxWidth = 800
-                            const scale = maxWidth / img.width
-                            canvas.width = maxWidth
-                            canvas.height = img.height * scale
-
-                            const ctx = canvas.getContext('2d')
-                            if (ctx) {
-                              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-                              imagePreview = canvas.toDataURL('image/jpeg', 0.4) // Low quality for small size
-                              console.log(`✅ Image compressed (${Math.round(imagePreview.length / 1024)}KB)`)
-                            }
-                          } catch (error) {
-                            console.error('❌ Failed to convert image:', error)
-                            imagePreview = ''
-                          }
-
-                          console.log('📤 Sending template design request')
-
                           const response = await api.post('/neon-request', {
-                            customerName: customerDetails.customerName,
-                            email: customerDetails.email,
-                            phone: customerDetails.phone,
-                            notes: customerDetails.notes,
+                            ...customerDetails,
                             config,
-                            imagePreview, // Send compressed template image
-                            pdfBase64: null, // Don't send PDF - avoid 413 error
-                            invoicePdfBase64: null,
+                            imagePreview,
+                            pdfBase64,
                             timestamp: new Date().toISOString(),
-                            templateName: selectedTemplateForModal.label,
-                            templateValue: selectedTemplateForModal.value,
-                            templateImageUrl: selectedTemplateForModal.imageUrl,
                           })
                           const responseData = response?.data || {}
                           setStatus({
                             type: 'success',
-                            message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day. Your design PDF has been downloaded.',
+                            message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day.',
                           })
                           // Do NOT clear PDF immediately so they can download it again
                           // Do NOT close modal immediately
@@ -1093,9 +1033,6 @@ const BuilderPage = () => {
                               }
                             }
                             setValidationErrors({})
-
-                            // Generate template PDF using existing generatePDF function
-                            console.log('📤 Generating template PDF for download...')
                             const config: NameSignConfig = {
                               category: 'name',
                               text: templateModalConfig.text,
@@ -1104,14 +1041,15 @@ const BuilderPage = () => {
                               size: templateModalConfig.size,
                               selectedTemplate: selectedTemplateForModal.value,
                             }
-
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
-
-                            // Store PDF for reuse in "Send to Designer" and "Download PDF Again"
                             setTemplateModalPdfBase64(pdfBase64)
-                            console.log('✅ Template PDF generated and downloaded')
-
-                            setStatus({ type: 'success', message: 'PDF downloaded successfully!' })
+                            // Trigger download immediately
+                            const link = document.createElement('a');
+                            link.href = pdfBase64;
+                            link.download = `MasterNeon_${selectedTemplateForModal.value}.pdf`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
                           }}
                         >
                           Download PDF

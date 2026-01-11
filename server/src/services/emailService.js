@@ -253,23 +253,12 @@ const sendNeonRequestEmail = async (request) => {
   // Build HTML Content
   let configDetails = ''
   if (request.config?.category === 'name') {
-    // Check if this is a template-based design
-    if (request.config.selectedTemplate || request.templateName) {
-      configDetails = `
-        <div class="field"><span class="label">Template:</span> <span class="value accent">${request.templateName || request.config.selectedTemplate}</span></div>
-        <div class="field"><span class="label">Custom Text:</span> <span class="value accent">${request.config.text}</span></div>
-        <div class="field"><span class="label">Color:</span> <span class="value" style="color: ${request.config.color}">${request.config.color}</span></div>
-        <div class="field"><span class="label">Size:</span> <span class="value">${request.config.size}</span></div>
-        ${request.templateImageUrl ? `<div class="field"><span class="label">Template Image:</span> <span class="value"><a href="${request.templateImageUrl}" style="color: #00ffff;">${request.templateImageUrl}</a></span></div>` : ''}
-      `
-    } else {
-      configDetails = `
-        <div class="field"><span class="label">Text:</span> <span class="value accent">${request.config.text}</span></div>
-        <div class="field"><span class="label">Font:</span> <span class="value">${request.config.font}</span></div>
-        <div class="field"><span class="label">Color:</span> <span class="value" style="color: ${request.config.color}">${request.config.color}</span></div>
-        <div class="field"><span class="label">Size:</span> <span class="value">${request.config.size}</span></div>
-      `
-    }
+    configDetails = `
+      <div class="field"><span class="label">Text:</span> <span class="value accent">${request.config.text}</span></div>
+      <div class="field"><span class="label">Font:</span> <span class="value">${request.config.font}</span></div>
+      <div class="field"><span class="label">Color:</span> <span class="value" style="color: ${request.config.color}">${request.config.color}</span></div>
+      <div class="field"><span class="label">Size:</span> <span class="value">${request.config.size}</span></div>
+    `
   } else if (request.config?.category === 'logo') {
     configDetails = `
       <div class="field"><span class="label">Type:</span> <span class="value">Uploaded Logo</span></div>
