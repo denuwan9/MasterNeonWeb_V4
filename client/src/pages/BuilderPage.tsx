@@ -863,9 +863,13 @@ const BuilderPage = () => {
                         />
                       </svg>
                     </div>
-                    <h3 className="mb-2 text-2xl font-bold text-white">Request Sent Successfully!</h3>
+                    <h3 className="mb-2 text-2xl font-bold text-white">
+                      {status.message.includes('downloaded') ? 'PDF Downloaded Successfully!' : 'Request Sent Successfully!'}
+                    </h3>
                     <p className="mb-8 max-w-md text-white/70">
-                      Our designers have received your request and will create a custom proof for you. Keep an eye on your email inbox!
+                      {status.message.includes('downloaded')
+                        ? 'Your design PDF has been downloaded. You can now send it to our designers or download it again.'
+                        : 'Our designers have received your request and will create a custom proof for you. Keep an eye on your email inbox!'}
                     </p>
                     <div className="flex flex-wrap gap-4">
                       <NeonButton
