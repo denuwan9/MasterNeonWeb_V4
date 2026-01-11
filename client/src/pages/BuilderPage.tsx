@@ -967,13 +967,21 @@ const BuilderPage = () => {
                           console.log('📤 Sending template design request:')
                           console.log('- Template:', selectedTemplateForModal.label)
                           console.log('- Custom text:', templateModalConfig.text)
-                          console.log('- PDF:', pdfBase64 ? `Yes (${Math.round(pdfBase64.length / 1024)}KB)` : 'No')
+                          console.log('- PDF size:', pdfBase64 ? `${Math.round(pdfBase64.length / 1024)}KB` : 'No PDF')
+
+                          // Check PDF size - if too large, don't send it (designer gets template URL instead)
+                          const pdfSizeKB = pdfBase64 ? pdfBase64.length / 1024 : 0
+                          const shouldSendPdf = pdfBase64 && pdfSizeKB < 1500 // Less than 1.5MB
+
+                          if (!shouldSendPdf && pdfBase64) {
+                            console.log(`⚠️ PDF too large (${Math.round(pdfSizeKB)}KB), sending template URL instead`)
+                          }
 
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
                             imagePreview: null, // Don't send separate image
-                            pdfBase64,          // Send template as PDF
+                            pdfBase64: shouldSendPdf ? pdfBase64 : null, // Only send PDF if small enough
                             invoicePdfBase64: null, // Don't send invoice for templates
                             timestamp: new Date().toISOString(),
                             // Add template metadata for email
