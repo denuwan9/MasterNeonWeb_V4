@@ -938,30 +938,15 @@ const BuilderPage = () => {
                           let pdfBase64: string | null = templateModalPdfBase64
 
                           if (!pdfBase64) {
-                            console.log('📤 Generating template PDF for sending...')
+                            console.log('📤 Generating template PDF...')
                             pdfBase64 = await generatePDF(config, customerDetails, null)
+                            // Note: generatePDF automatically downloads the PDF, no need to download again
 
                             // Store PDF for "Download Again" button
                             setTemplateModalPdfBase64(pdfBase64)
-                            console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
+                            console.log(`✅ Template PDF generated and downloaded (${Math.round(pdfBase64.length / 1024)}KB)`)
                           } else {
-                            console.log('✅ Reusing stored PDF')
-                          }
-
-                          // Auto-download PDF for customer before sending (works for both newly generated and reused PDFs)
-                          if (pdfBase64) {
-                            try {
-                              const timestamp = new Date().toISOString().split('T')[0]
-                              const link = document.createElement('a')
-                              link.href = 'data:application/pdf;base64,' + pdfBase64
-                              link.download = `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
-                              console.log('✅ PDF downloaded to customer')
-                            } catch (downloadError) {
-                              console.error('Failed to download PDF:', downloadError)
-                            }
+                            console.log('✅ Reusing stored PDF (already downloaded)')
                           }
 
                           // Convert template image to base64 (compressed)
