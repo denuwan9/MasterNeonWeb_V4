@@ -229,7 +229,6 @@ const BuilderPage = () => {
         config,
         imagePreview,
         pdfBase64,
-        invoicePdfBase64: null, // Don't send invoice PDF
         timestamp: new Date().toISOString(),
       })
 
@@ -837,7 +836,6 @@ const BuilderPage = () => {
                             config,
                             imagePreview,
                             pdfBase64,
-                            invoicePdfBase64: null, // Don't send invoice PDF
                             timestamp: new Date().toISOString(),
                           })
                           const responseData = response?.data || {}
