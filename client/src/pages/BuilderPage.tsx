@@ -215,20 +215,12 @@ const BuilderPage = () => {
       // For logo, use uploaded image; for name, capture canvas
       const imagePreview = activeTab === 'logo' ? (config as LogoSignConfig).imageData : previewRef.current?.getImage()
 
-      // Use stored PDF if available, otherwise generate a new one
-      let pdfBase64 = generatedPdfBase64
-      if (!pdfBase64) {
-        // Generate PDF and get base64 representation (also triggers download)
-        const previewNode = activeTab === 'name' ? previewElementRef.current : null
-        pdfBase64 = await generatePDF(config, customerDetails, previewNode)
-        setGeneratedPdfBase64(pdfBase64)
-      }
-
+      // Don't generate or send PDF - avoid auto-download
       const response = await api.post('/neon-request', {
         ...customerDetails,
         config,
         imagePreview,
-        pdfBase64,
+        pdfBase64: null,
         timestamp: new Date().toISOString(),
       })
 
@@ -824,18 +816,12 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
                           const imagePreview = selectedTemplateForModal.imageUrl
-                          // Use stored PDF if available, otherwise generate a new one
-                          let pdfBase64 = templateModalPdfBase64
-                          if (!pdfBase64) {
-                            // generate PDF for template config
-                            pdfBase64 = await generatePDF(config, customerDetails, null)
-                            setTemplateModalPdfBase64(pdfBase64)
-                          }
+                          // Don't generate or send PDF - avoid auto-download
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
                             imagePreview,
-                            pdfBase64,
+                            pdfBase64: null,
                             timestamp: new Date().toISOString(),
                           })
                           const responseData = response?.data || {}
@@ -938,13 +924,7 @@ const BuilderPage = () => {
                             }
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
                             setTemplateModalPdfBase64(pdfBase64)
-                            // Trigger download immediately
-                            const link = document.createElement('a');
-                            link.href = pdfBase64;
-                            link.download = `MasterNeon_${selectedTemplateForModal.value}.pdf`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            // Note: generatePDF automatically downloads the PDF
                           }}
                         >
                           Download PDF
