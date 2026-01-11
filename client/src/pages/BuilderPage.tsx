@@ -871,14 +871,9 @@ const BuilderPage = () => {
                       <NeonButton
                         variant="secondary"
                         onClick={() => {
-                          if (templateModalPdfBase64) {
+                          if (templateModalPdfBase64 && selectedTemplateForModal) {
                             const timestamp = new Date().toISOString().split('T')[0]
-                            const link = document.createElement('a')
-                            link.href = 'data:application/pdf;base64,' + templateModalPdfBase64
-                            link.download = `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`
-                            document.body.appendChild(link)
-                            link.click()
-                            document.body.removeChild(link)
+                            downloadPDFFromBase64(templateModalPdfBase64, `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`)
                             console.log('✅ PDF re-downloaded')
                           } else {
                             console.error('No PDF available to download')
