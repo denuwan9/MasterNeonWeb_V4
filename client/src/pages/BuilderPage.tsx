@@ -215,7 +215,14 @@ const BuilderPage = () => {
       // For logo, use uploaded image; for name, capture canvas
       const imagePreview = activeTab === 'logo' ? (config as LogoSignConfig).imageData : previewRef.current?.getImage()
 
-      // Don't generate or send PDF - avoid auto-download
+      // Generate PDF if not already generated (auto-downloads once)
+      if (!generatedPdfBase64) {
+        const previewNode = activeTab === 'name' ? previewElementRef.current : null
+        const pdfBase64 = await generatePDF(config, customerDetails, previewNode)
+        setGeneratedPdfBase64(pdfBase64)
+      }
+
+      // Send to designer (don't send PDF to avoid 413 error)
       const response = await api.post('/neon-request', {
         ...customerDetails,
         config,
@@ -816,7 +823,14 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
                           const imagePreview = selectedTemplateForModal.imageUrl
-                          // Don't generate or send PDF - avoid auto-download
+
+                          // Generate PDF if not already generated (auto-downloads once)
+                          if (!templateModalPdfBase64) {
+                            const pdfBase64 = await generatePDF(config, customerDetails, null)
+                            setTemplateModalPdfBase64(pdfBase64)
+                          }
+
+                          // Send to designer (don't send PDF to avoid 413 error)
                           const response = await api.post('/neon-request', {
                             ...customerDetails,
                             config,
