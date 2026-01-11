@@ -931,14 +931,27 @@ const BuilderPage = () => {
 
                           // Convert template image to PDF (lightweight)
                           console.log('📤 Generating PDF with template image...')
+                          console.log('Template URL:', selectedTemplateForModal.imageUrl)
                           let pdfBase64: string | null = null
                           try {
-                            // Load template image
+                            // Load template image - local images don't need crossOrigin
                             const img = new Image()
-                            img.crossOrigin = 'anonymous'
+                            if (!selectedTemplateForModal.imageUrl.startsWith('/')) {
+                              img.crossOrigin = 'anonymous'
+                            }
+
                             await new Promise<void>((resolve, reject) => {
-                              img.onload = () => resolve()
-                              img.onerror = () => reject(new Error('Failed to load template image'))
+                              const timeout = setTimeout(() => reject(new Error('Image load timeout')), 10000)
+                              img.onload = () => {
+                                clearTimeout(timeout)
+                                console.log('✅ Image loaded:', img.width, 'x', img.height)
+                                resolve()
+                              }
+                              img.onerror = (e) => {
+                                clearTimeout(timeout)
+                                console.error('❌ Image load error:', e)
+                                reject(new Error('Failed to load template image'))
+                              }
                               img.src = selectedTemplateForModal.imageUrl
                             })
 
@@ -966,6 +979,7 @@ const BuilderPage = () => {
                             doc.text(`Size: ${templateModalConfig.size}`, margin, margin + 55)
 
                             // Add template image
+                            console.log('Converting image to canvas...')
                             const canvas = document.createElement('canvas')
                             canvas.width = img.width
                             canvas.height = img.height
@@ -973,6 +987,7 @@ const BuilderPage = () => {
                             if (ctx) {
                               ctx.drawImage(img, 0, 0)
                               const imageData = canvas.toDataURL('image/jpeg', 0.7)
+                              console.log('✅ Canvas data URL created, length:', imageData.length)
 
                               const imgWidth = pageWidth - 2 * margin
                               const imgHeight = (img.height * imgWidth) / img.width
@@ -981,7 +996,11 @@ const BuilderPage = () => {
                               const finalWidth = (img.width * finalHeight) / img.height
 
                               const imgX = margin + (imgWidth - finalWidth) / 2
+                              console.log('Adding image to PDF...')
                               doc.addImage(imageData, 'JPEG', imgX, 80, finalWidth, finalHeight)
+                              console.log('✅ Image added to PDF')
+                            } else {
+                              console.error('❌ Could not get canvas context')
                             }
 
                             const arrayBuffer = doc.output('arraybuffer')
@@ -994,8 +1013,24 @@ const BuilderPage = () => {
 
                             console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
                           } catch (error) {
-                            console.warn('Failed to generate template PDF:', error)
+                            console.error('❌ Failed to generate template PDF:', error)
                             pdfBase64 = null
+                          }
+
+                          // Auto-download PDF for customer before sending
+                          if (pdfBase64) {
+                            try {
+                              const timestamp = new Date().toISOString().split('T')[0]
+                              const link = document.createElement('a')
+                              link.href = 'data:application/pdf;base64,' + pdfBase64
+                              link.download = `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                              console.log('✅ PDF downloaded to customer')
+                            } catch (downloadError) {
+                              console.error('Failed to download PDF:', downloadError)
+                            }
                           }
 
                           console.log('📤 Sending template design request:')
@@ -1018,7 +1053,7 @@ const BuilderPage = () => {
                           const responseData = response?.data || {}
                           setStatus({
                             type: 'success',
-                            message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day.',
+                            message: responseData.message || 'Sent! A Master Neon designer will reply with proofs within 1 business day. Your design PDF has been downloaded.',
                           })
                           // Do NOT clear PDF immediately so they can download it again
                           // Do NOT close modal immediately
