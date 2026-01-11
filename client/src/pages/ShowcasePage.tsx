@@ -26,6 +26,34 @@ const tagMap: Record<string, ShowcaseTag[]> = {
   'hb-cursive': ['Events', 'Names'],
   'hb-modern': ['Events'],
   'ha-heart': ['Events'],
+}
+
+const showcaseItems: ShowcaseItem[] = defaultTemplates.map((item) => ({
+  label: item.label,
+  value: item.value,
+  imageUrl: item.imageUrl,
+  description: item.text,
+  tags: tagMap[item.value] ?? ['Icons'],
+}))
+
+const availableTags: (ShowcaseTag | 'All')[] = ['All', 'Logos', 'Events', 'Names', 'Icons', 'Abstract']
+
+export default function ShowcasePage() {
+  const [activeTag, setActiveTag] = useState<ShowcaseTag | 'All'>('All')
+  const [selected, setSelected] = useState<ShowcaseItem>(showcaseItems[0])
+  const [search, setSearch] = useState('')
+
+  const filteredItems = useMemo(() => {
+    return showcaseItems.filter((item) => {
+      const matchesTag = activeTag === 'All' || item.tags.includes(activeTag)
+      const matchesSearch = item.label.toLowerCase().includes(search.toLowerCase())
+      return matchesTag && matchesSearch
+    })
+  }, [activeTag, search])
+
+  return (
+    <div className="space-y-10">
+      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0b0d13] via-[#0f0b17] to-[#0a1020] p-6 shadow-neon md:p-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,77,240,0.12),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(0,194,255,0.12),transparent_40%)]" />
         <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
@@ -47,6 +75,34 @@ const tagMap: Record<string, ShowcaseTag[]> = {
               >
                 Customize Design
               </NeonButton>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-white/70">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.2em]">
+                24h proofs
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.2em]">
+                Ready-made templates
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 uppercase tracking-[0.2em]">
+                Color & size flexible
+              </span>
+            </div>
+          </div>
+          <motion.div
+            layout
+            className="relative rounded-2xl border border-white/10 bg-white/5 p-4 shadow-neon"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black/60">
+              <img
+                src={selected.imageUrl}
+                alt={selected.label}
+                className="h-full w-full object-cover"
+                loading="eager"
+                fetchPriority="high"
+                decoding="sync"
+              />
             </div>
             <div className="mt-4 text-sm text-white/80">
               <p className="font-semibold text-white">{selected.label}</p>

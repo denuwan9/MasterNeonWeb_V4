@@ -80,8 +80,6 @@ export const sizeMaxLetters: Record<NeonSize, number> = {
   large: 10,
 }
 
-]
-
 export const emojiOptions = [
   '👑', '❤️', '💛', '💚', '💙', '💜', '🧡', '🖤', '🤍', '💖',
   '💗', '💓', '💕', '💞', '💟', '💝', '✨', '🌟', '💫', '⭐',
