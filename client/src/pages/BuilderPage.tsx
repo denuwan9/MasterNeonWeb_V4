@@ -930,99 +930,18 @@ const BuilderPage = () => {
                             selectedTemplate: selectedTemplateForModal.value,
                           }
 
-                          // Use stored PDF if already generated, otherwise generate new one
+                          // Use stored PDF if already generated, otherwise generate new one using existing generatePDF function
                           let pdfBase64: string | null = templateModalPdfBase64
 
                           if (!pdfBase64) {
-                            // Convert template image to PDF (lightweight)
-                            console.log('📤 Generating PDF with template image...')
-                            console.log('Template URL:', selectedTemplateForModal.imageUrl)
-                            try {
-                              // Load template image - local images don't need crossOrigin
-                              const img = new Image()
-                              if (!selectedTemplateForModal.imageUrl.startsWith('/')) {
-                                img.crossOrigin = 'anonymous'
-                              }
+                            console.log('📤 Generating template PDF for sending...')
+                            pdfBase64 = await generatePDF(config, customerDetails, null)
 
-                              await new Promise<void>((resolve, reject) => {
-                                const timeout = setTimeout(() => reject(new Error('Image load timeout')), 10000)
-                                img.onload = () => {
-                                  clearTimeout(timeout)
-                                  console.log('✅ Image loaded:', img.width, 'x', img.height)
-                                  resolve()
-                                }
-                                img.onerror = (e) => {
-                                  clearTimeout(timeout)
-                                  console.error('❌ Image load error:', e)
-                                  reject(new Error('Failed to load template image'))
-                                }
-                                img.src = selectedTemplateForModal.imageUrl
-                              })
-
-                              // Generate a simple PDF with just the template image
-                              const { jsPDF } = await import('jspdf')
-                              const doc = new jsPDF('p', 'mm', 'a4')
-                              const pageWidth = doc.internal.pageSize.getWidth()
-                              const pageHeight = doc.internal.pageSize.getHeight()
-                              const margin = 20
-
-                              // Add black background
-                              doc.setFillColor(0, 0, 0)
-                              doc.rect(0, 0, pageWidth, pageHeight, 'F')
-
-                              // Add title
-                              doc.setTextColor(255, 255, 255)
-                              doc.setFontSize(16)
-                              doc.text('Template Design Request', margin, margin + 10)
-
-                              // Add template info
-                              doc.setFontSize(12)
-                              doc.text(`Template: ${selectedTemplateForModal.label}`, margin, margin + 25)
-                              doc.text(`Custom Text: ${templateModalConfig.text}`, margin, margin + 35)
-                              doc.text(`Color: ${templateModalConfig.color}`, margin, margin + 45)
-                              doc.text(`Size: ${templateModalConfig.size}`, margin, margin + 55)
-
-                              // Add template image
-                              console.log('Converting image to canvas...')
-                              const canvas = document.createElement('canvas')
-                              canvas.width = img.width
-                              canvas.height = img.height
-                              const ctx = canvas.getContext('2d')
-                              if (ctx) {
-                                ctx.drawImage(img, 0, 0)
-                                const imageData = canvas.toDataURL('image/jpeg', 0.7)
-                                console.log('✅ Canvas data URL created, length:', imageData.length)
-
-                                const imgWidth = pageWidth - 2 * margin
-                                const imgHeight = (img.height * imgWidth) / img.width
-                                const maxHeight = pageHeight - margin - 80
-                                const finalHeight = imgHeight > maxHeight ? maxHeight : imgHeight
-                                const finalWidth = (img.width * finalHeight) / img.height
-
-                                const imgX = margin + (imgWidth - finalWidth) / 2
-                                console.log('Adding image to PDF...')
-                                doc.addImage(imageData, 'JPEG', imgX, 80, finalWidth, finalHeight)
-                                console.log('✅ Image added to PDF')
-                              } else {
-                                console.error('❌ Could not get canvas context')
-                              }
-
-                              const arrayBuffer = doc.output('arraybuffer')
-                              const bytes = new Uint8Array(arrayBuffer)
-                              let binary = ''
-                              for (let i = 0; i < bytes.byteLength; i++) {
-                                binary += String.fromCharCode(bytes[i])
-                              }
-                              pdfBase64 = btoa(binary)
-
-                              console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
-
-                              // Store PDF for "Download Again" button
-                              setTemplateModalPdfBase64(pdfBase64)
-                            } catch (error) {
-                              console.error('❌ Failed to generate template PDF:', error)
-                              pdfBase64 = null
-                            }
+                            // Store PDF for "Download Again" button
+                            setTemplateModalPdfBase64(pdfBase64)
+                            console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
+                          } else {
+                            console.log('✅ Reusing stored PDF')
                           }
 
                           // Auto-download PDF for customer before sending (works for both newly generated and reused PDFs)
@@ -1149,108 +1068,24 @@ const BuilderPage = () => {
                             }
                             setValidationErrors({})
 
-                            // Generate template PDF with image
-                            console.log('📤 Generating template PDF with image for download...')
-                            console.log('Template URL:', selectedTemplateForModal.imageUrl)
-                            let pdfBase64: string | null = null
-                            try {
-                              // Load template image - local images don't need crossOrigin
-                              const img = new Image()
-                              if (!selectedTemplateForModal.imageUrl.startsWith('/')) {
-                                img.crossOrigin = 'anonymous'
-                              }
-
-                              await new Promise<void>((resolve, reject) => {
-                                const timeout = setTimeout(() => reject(new Error('Image load timeout')), 10000)
-                                img.onload = () => {
-                                  clearTimeout(timeout)
-                                  console.log('✅ Image loaded:', img.width, 'x', img.height)
-                                  resolve()
-                                }
-                                img.onerror = (e) => {
-                                  clearTimeout(timeout)
-                                  console.error('❌ Image load error:', e)
-                                  reject(new Error('Failed to load template image'))
-                                }
-                                img.src = selectedTemplateForModal.imageUrl
-                              })
-
-                              // Generate a simple PDF with just the template image
-                              const { jsPDF } = await import('jspdf')
-                              const doc = new jsPDF('p', 'mm', 'a4')
-                              const pageWidth = doc.internal.pageSize.getWidth()
-                              const pageHeight = doc.internal.pageSize.getHeight()
-                              const margin = 20
-
-                              // Add black background
-                              doc.setFillColor(0, 0, 0)
-                              doc.rect(0, 0, pageWidth, pageHeight, 'F')
-
-                              // Add title
-                              doc.setTextColor(255, 255, 255)
-                              doc.setFontSize(16)
-                              doc.text('Template Design Request', margin, margin + 10)
-
-                              // Add template info
-                              doc.setFontSize(12)
-                              doc.text(`Template: ${selectedTemplateForModal.label}`, margin, margin + 25)
-                              doc.text(`Custom Text: ${templateModalConfig.text}`, margin, margin + 35)
-                              doc.text(`Color: ${templateModalConfig.color}`, margin, margin + 45)
-                              doc.text(`Size: ${templateModalConfig.size}`, margin, margin + 55)
-
-                              // Add template image
-                              console.log('Converting image to canvas...')
-                              const canvas = document.createElement('canvas')
-                              canvas.width = img.width
-                              canvas.height = img.height
-                              const ctx = canvas.getContext('2d')
-                              if (ctx) {
-                                ctx.drawImage(img, 0, 0)
-                                const imageData = canvas.toDataURL('image/jpeg', 0.7)
-                                console.log('✅ Canvas data URL created, length:', imageData.length)
-
-                                const imgWidth = pageWidth - 2 * margin
-                                const imgHeight = (img.height * imgWidth) / img.width
-                                const maxHeight = pageHeight - margin - 80
-                                const finalHeight = imgHeight > maxHeight ? maxHeight : imgHeight
-                                const finalWidth = (img.width * finalHeight) / img.height
-
-                                const imgX = margin + (imgWidth - finalWidth) / 2
-                                console.log('Adding image to PDF...')
-                                doc.addImage(imageData, 'JPEG', imgX, 80, finalWidth, finalHeight)
-                                console.log('✅ Image added to PDF')
-                              } else {
-                                console.error('❌ Could not get canvas context')
-                              }
-
-                              const arrayBuffer = doc.output('arraybuffer')
-                              const bytes = new Uint8Array(arrayBuffer)
-                              let binary = ''
-                              for (let i = 0; i < bytes.byteLength; i++) {
-                                binary += String.fromCharCode(bytes[i])
-                              }
-                              pdfBase64 = btoa(binary)
-
-                              console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
-
-                              // Store PDF for reuse in "Send to Designer" and "Download PDF Again"
-                              setTemplateModalPdfBase64(pdfBase64)
-
-                              // Download the PDF
-                              const timestamp = new Date().toISOString().split('T')[0]
-                              const link = document.createElement('a')
-                              link.href = 'data:application/pdf;base64,' + pdfBase64
-                              link.download = `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
-                              console.log('✅ PDF downloaded')
-
-                              setStatus({ type: 'success', message: 'PDF downloaded successfully!' })
-                            } catch (error) {
-                              console.error('❌ Failed to generate template PDF:', error)
-                              setStatus({ type: 'error', message: 'Failed to generate PDF. Please try again.' })
+                            // Generate template PDF using existing generatePDF function
+                            console.log('📤 Generating template PDF for download...')
+                            const config: NameSignConfig = {
+                              category: 'name',
+                              text: templateModalConfig.text,
+                              font: getDefaultFont(),
+                              color: templateModalConfig.color,
+                              size: templateModalConfig.size,
+                              selectedTemplate: selectedTemplateForModal.value,
                             }
+
+                            const pdfBase64 = await generatePDF(config, customerDetails, null)
+
+                            // Store PDF for reuse in "Send to Designer" and "Download PDF Again"
+                            setTemplateModalPdfBase64(pdfBase64)
+                            console.log('✅ Template PDF generated and downloaded')
+
+                            setStatus({ type: 'success', message: 'PDF downloaded successfully!' })
                           }}
                         >
                           Download PDF
