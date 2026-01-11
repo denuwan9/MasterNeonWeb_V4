@@ -871,12 +871,18 @@ const BuilderPage = () => {
                       <NeonButton
                         variant="secondary"
                         onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = templateModalPdfBase64 || '';
-                          link.download = `MasterNeon_${selectedTemplateForModal.value}_${new Date().toISOString().split('T')[0]}.pdf`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
+                          if (templateModalPdfBase64) {
+                            const timestamp = new Date().toISOString().split('T')[0]
+                            const link = document.createElement('a')
+                            link.href = 'data:application/pdf;base64,' + templateModalPdfBase64
+                            link.download = `MasterNeon-${selectedTemplateForModal.value}-${timestamp}.pdf`
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                            console.log('✅ PDF re-downloaded')
+                          } else {
+                            console.error('No PDF available to download')
+                          }
                         }}
                       >
                         Download PDF Again
@@ -1012,6 +1018,9 @@ const BuilderPage = () => {
                             pdfBase64 = btoa(binary)
 
                             console.log(`✅ Template PDF generated (${Math.round(pdfBase64.length / 1024)}KB)`)
+
+                            // Store PDF for "Download Again" button
+                            setTemplateModalPdfBase64(pdfBase64)
                           } catch (error) {
                             console.error('❌ Failed to generate template PDF:', error)
                             pdfBase64 = null
