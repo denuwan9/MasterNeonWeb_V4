@@ -54,7 +54,6 @@ const BuilderPage = () => {
     phone?: string
   }>({})
   const [generatedPdfBase64, setGeneratedPdfBase64] = useState<string | null>(null)
-  const [templateModalPdfBase64, setTemplateModalPdfBase64] = useState<string | null>(null)
   const [selectedTemplateForModal, setSelectedTemplateForModal] = useState<typeof defaultTemplates[0] | null>(null)
   const [templateModalConfig, setTemplateModalConfig] = useState<{
     text: string
@@ -766,7 +765,7 @@ const BuilderPage = () => {
                         variant="secondary"
                         onClick={() => {
                           const link = document.createElement('a');
-                          link.href = templateModalPdfBase64 || '';
+                          link.href = generatedPdfBase64 || '';
                           link.download = `MasterNeon_${selectedTemplateForModal.value}_${new Date().toISOString().split('T')[0]}.pdf`;
                           document.body.appendChild(link);
                           link.click();
@@ -779,7 +778,7 @@ const BuilderPage = () => {
                         onClick={() => {
                           setStatus({ type: 'idle', message: '' })
                           setCustomerDetails({ customerName: '', email: '', phone: '', notes: '' })
-                          setTemplateModalPdfBase64(null)
+                          setGeneratedPdfBase64(null)
                         }}
                       >
                         Create Another Design
@@ -825,9 +824,9 @@ const BuilderPage = () => {
                           const imagePreview = selectedTemplateForModal.imageUrl
 
                           // Generate PDF if not already generated (auto-downloads once)
-                          if (!templateModalPdfBase64) {
+                          if (!generatedPdfBase64) {
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
-                            setTemplateModalPdfBase64(pdfBase64)
+                            setGeneratedPdfBase64(pdfBase64)
                           }
 
                           // Send to designer (don't send PDF to avoid 413 error)
@@ -937,7 +936,7 @@ const BuilderPage = () => {
                               selectedTemplate: selectedTemplateForModal.value,
                             }
                             const pdfBase64 = await generatePDF(config, customerDetails, null)
-                            setTemplateModalPdfBase64(pdfBase64)
+                            setGeneratedPdfBase64(pdfBase64)
                             // Note: generatePDF automatically downloads the PDF
                           }}
                         >
